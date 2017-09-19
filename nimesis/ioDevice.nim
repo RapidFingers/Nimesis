@@ -12,7 +12,7 @@ type
     # Client packet
     LimitedStream* = ref object of RootObj
         data        :   StringStream            # Data stream
-        len         :   int                     # Length from cursor position to end
+        len         :   int             # Length from cursor position to end
 
 proc init*(this : LimitedStream) =
     # Init limited string
@@ -57,9 +57,14 @@ proc readUint32*(this : LimitedStream) : uint32 =
     result = uint32(this.data.readInt32)
     this.len -= 4
 
+proc readUint64*(this : LimitedStream) : uint64 =
+    # Read uint64
+    result = uint64(this.data.readInt64)
+    this.len -= 8
+
 proc readString*(this : LimitedStream, len : int) : string =
     # Read string
-    result = this.data.readStr(len)
+    result = this.data.readStr(int len)
     this.len -= len
         
 proc addUint8*(this : LimitedStream, value : uint8) : void =
@@ -117,14 +122,13 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
         var client = newClientData(request.client)
         while true:
             let readFut = request.client.readData(false)
-            yield readFut            
+            yield readFut
             if readFut.failed: break
 
             let f = readFut.read()
             if f.opcode == Opcode.Binary:
                 var packet = newLimitedStream()
                 packet.setData(f.data)
-                packet.setDataPos(1)
                 let processFut = workspace.onPacket(client, packet)
                 yield processFut
                 if processFut.failed: break

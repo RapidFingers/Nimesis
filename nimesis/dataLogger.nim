@@ -109,7 +109,7 @@ type LogRecord* = ref object of RootObj
 # Add new class record
 type AddClassRecord* = ref object of LogRecord    
     name* : string
-    parentId : uint64
+    parentId* : uint64
 
 #############################################################################################
 # Workspace of data logger

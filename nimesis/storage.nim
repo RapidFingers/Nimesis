@@ -5,30 +5,42 @@ import
     asyncfile,
     producer,
     dataLogger,
-    databaseWorker
+    database
 
 #############################################################################################
 # Workspace of storage
 type Workspace = ref object
-    classes : TableRef[UniqueId, Class]                    # All classes
-    instances : TableRef[UniqueId, Instance]               # All instances
+    classes : TableRef[BiggestUInt, Class]                    # All classes
+    instances : TableRef[BiggestUInt, Instance]               # All instances
 
 var workspace {.threadvar.} : Workspace
 
 proc newWorkspace() : Workspace =
     # Create new workspace
     result = Workspace()
-    result.classes = newTable[UniqueId, Class]()
-    result.instances = newTable[UniqueId, Instance]()
+    result.classes = newTable[BiggestUInt, Class]()
+    result.instances = newTable[BiggestUInt, Instance]()
 
 #############################################################################################
 # Private
 
-proc placeToDatabase() : void =
+proc placeToDatabase() : void =    
     # Place all log to database
     for record in dataLogger.allRecords():
-        databaseWorker.writeLogRecord(record)
+        database.writeLogRecord(record)
     dataLogger.removeLog()
+
+proc getClass(classTable : TableRef[BiggestUInt, DbClass], id : BiggestUInt) : Class =
+    # Get class from class table with all parents
+    let cls = classTable.getOrDefault(id)
+    if cls.isNil: return nil
+    result = producer.newClass(id, cls.name, getClass(classTable, cls.parentId))
+
+proc loadFromDatabase() : void =
+    # Load all from database to memory
+    let classes = database.getAllClasses()
+    for k, v in classes:
+        workspace.classes[v.id] = getClass(classes, v.id)
 
 #############################################################################################
 # Public interface
@@ -44,9 +56,14 @@ proc storeNewClass*(class : Class) : Future[void] {.async.} =
 
     workspace.classes[class.id] = class
 
+proc getClassById*(id : BiggestUInt) : Class = 
+    # Get class by id
+    result = workspace.classes.getOrDefault(id)
+
 proc init*() : void =
     # Init storage
     workspace = newWorkspace()
     dataLogger.init()
-    databaseWorker.init()
+    database.init()
     placeToDatabase()
+    loadFromDatabase()

@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS classes (
+    id INTEGER PRIMARY KEY,
+    parentId INTEGER,
+    name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS instances (
+    id INTEGER PRIMARY KEY,
+    classId INTEGER,
+    name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fields (
+    id INTEGER PRIMARY KEY,
+    parentType INTEGER,
+    parentId INTEGER,
+    valueType INTEGER,
+    valueId INTEGER,
+    name VARCHAR(100) NOT NULL
+)

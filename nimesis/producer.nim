@@ -11,15 +11,12 @@ type
         INT = 0, 
         STRING = 1, 
         FLOAT = 2
-
-    # Unique id
-    UniqueId* = BiggestUInt
-
+    
     # Base entity
     Entity* = ref object of RootObj
-        id* : UniqueId                      # Id of entity
+        id* : BiggestUInt                    # Id of entity
         name* : string                       # Name of entity
-        caption* : UniqueId                  # Reference to caption
+        caption* : BiggestUInt               # Reference to caption
 
     # Field of class or instance
     Field* = ref object of Entity        
@@ -44,7 +41,7 @@ type
         methods* : seq[Method]               # Interface methods
 
     EntityWithValues = ref object of Entity
-        values* : TableRef[UniqueId, Variant]      # Values for class fields
+        values* : TableRef[BiggestUInt, Variant]      # Values for class fields
 
     # Class entity
     Class* = ref object of EntityWithValues        
@@ -60,8 +57,7 @@ type
 
     # Instance entity
     Instance* = ref object of EntityWithValues
-        classId : UniqueId                  # For lazy loading
-        class : Class                       # Class of instance 
+        class : Class                          # Class of instance 
 
 #############################################################################################
 # Workspace of producer
@@ -76,7 +72,7 @@ proc newWorkspace() : Workspace =
 # Utility
 
 # Create new id
-template newId() : UniqueId = UniqueId(epochTime() * 1000000)
+template newId() : BiggestUInt = BiggestUInt(epochTime() * 1000000)
 
 #############################################################################################
 # Entity
@@ -91,7 +87,7 @@ proc initEntity(this : Entity, name : string) {.inline.} =
 proc initEntityWithValues(this : EntityWithValues, name : string) {.inline.} =
     # Init entity with values
     this.initEntity(name)
-    this.values = newTable[UniqueId, Variant](1)
+    this.values = newTable[BiggestUInt, Variant](1)
 
 #############################################################################################
 # Class
@@ -131,21 +127,23 @@ proc newClass*(name : string, parent : Class) : Class =
     result.initClass(name, parent)
     result.id = newId()
     result.parent = parent
-    parent.childClasses.add(result)
+    if not parent.isNil:
+        parent.childClasses.add(result)
 
-proc newClass*(id : UniqueId, name : string) : Class =
+proc newClass*(id : BiggestUInt, name : string) : Class =
     # Create new class
     result = Class()
     result.initClass(name, nil)
     result.id = id
 
-proc newClass*(id : UniqueId, name : string, parent : Class) : Class =
+proc newClass*(id : BiggestUInt, name : string, parent : Class) : Class =
     # Create new class
     result = Class()
     result.initClass(name, parent)
     result.id = id
     result.parent = parent
-    parent.childClasses.add(result)
+    if not parent.isNil:        
+        parent.childClasses.add(result)
 
 proc init*() =
     # Init producer

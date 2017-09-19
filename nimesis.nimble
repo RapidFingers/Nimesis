@@ -8,6 +8,6 @@ license       = "MIT"
 # Dependencies
 
 requires "nim >= 0.17.0", "websocket", "variant"
-srcDir = "./database"
-binDir = "../dist"
-bin = @["database.exe"]
+srcDir = "./nimesis"
+binDir = "./out"
+bin = @["nimesis.exe"]

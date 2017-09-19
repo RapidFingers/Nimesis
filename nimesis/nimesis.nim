@@ -13,8 +13,11 @@ import
 producer.init()
 storage.init()
 
-var cls = producer.newClass("BaseClass")
-waitFor storage.storeNewClass(cls)
+let cls = storage.getClassById(1505844713748267'u64)
+echo cls.name
+
+#var cls = producer.newClass("BaseClass")
+#waitFor storage.storeNewClass(cls)
 
 # let cls = logic.getClassById(9787345)
 # if cls.isNil:
