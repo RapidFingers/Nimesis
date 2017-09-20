@@ -73,5 +73,7 @@ proc getAllClasses*() : TableRef[BiggestUInt, DbClass] =
 
 proc init*() : void =
     # Init database
+    echo "Init database"
     workspace = newWorkspace()
     initDatabase()
+    echo "Init database complete"

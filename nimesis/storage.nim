@@ -29,6 +29,7 @@ proc placeToDatabase() : void =
     for record in dataLogger.allRecords():
         database.writeLogRecord(record)
     dataLogger.removeLog()
+    echo "All log placed to database"
 
 proc getClass(classTable : TableRef[BiggestUInt, DbClass], id : BiggestUInt) : Class =
     # Get class from class table with all parents
@@ -40,7 +41,10 @@ proc loadFromDatabase() : void =
     # Load all from database to memory
     let classes = database.getAllClasses()
     for k, v in classes:
+        echo k
         workspace.classes[v.id] = getClass(classes, v.id)
+    
+    echo "All data loaded from database"
 
 #############################################################################################
 # Public interface
@@ -62,8 +66,10 @@ proc getClassById*(id : BiggestUInt) : Class =
 
 proc init*() : void =
     # Init storage
+    echo "Initing storage"
     workspace = newWorkspace()
     dataLogger.init()
     database.init()
     placeToDatabase()
     loadFromDatabase()
+    echo "Init storage complete"

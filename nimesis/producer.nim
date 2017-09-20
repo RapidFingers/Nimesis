@@ -147,4 +147,6 @@ proc newClass*(id : BiggestUInt, name : string, parent : Class) : Class =
 
 proc init*() =
     # Init producer
+    echo "Init producer"
     workspace = newWorkspace()
+    echo "Init producer complete"

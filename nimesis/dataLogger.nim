@@ -180,4 +180,6 @@ proc removeLog*() : void =
 
 proc init*() : void =
     # Init data logger
+    echo "Init data logger"
     workspace = newWorkspace()
+    echo "Init data logger complete"

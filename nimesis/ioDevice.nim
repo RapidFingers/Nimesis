@@ -6,6 +6,12 @@ import
     strutils,
     streams
 
+# Protocol name
+const PROTOCOL_NAME = "nimesis"
+
+# Internal error
+const INTERNAL_ERROR = 0 
+
 #############################################################################################
 # Limited stream
 type
@@ -39,6 +45,10 @@ proc setDataPos*(this : LimitedStream, pos : int) : void =
     this.data.setPosition(pos)
     this.len = this.len - pos
 
+proc toStart*(this : LimitedStream) : void =
+    # Go to start of stream
+    this.setDataPos(0)
+
 proc len*(this : LimitedStream) : int = 
     return this.len
 
@@ -58,9 +68,9 @@ proc readUint32*(this : LimitedStream) : uint32 =
     this.len -= 4
 
 proc readUint64*(this : LimitedStream) : uint64 =
-    # Read uint64
+    # Read uint64    
     result = uint64(this.data.readInt64)
-    this.len -= 8
+    #this.len -= 8
 
 proc readString*(this : LimitedStream, len : int) : string =
     # Read string
@@ -81,6 +91,11 @@ proc addUint32*(this : LimitedStream, value : uint32) : void =
     # Write uint32
     this.data.write(value)
     this.len += 4
+
+proc addUint64*(this : LimitedStream, value : uint64) : void =
+    # Write uint64
+    this.data.write(value)
+    this.len += 8
 
 proc addString*(this : LimitedStream, value : string) : void =
     # Write string
@@ -103,16 +118,20 @@ proc newClientData*(socket : AsyncSocket) : ClientData =
 type RecievePacket* = proc(client : ClientData, packet : LimitedStream) : Future[void]
 type Workspace = ref object
     onPacket : RecievePacket
+    server : AsyncHttpServer
 
 proc newWorkspace() : Workspace =
     result = Workspace()
+    result.server = newAsyncHttpServer()
 
 var workspace {.threadvar.} : Workspace
+
+proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.}
 
 proc callback(request: Request) : Future[void] {.async, gcsafe.} =
     # Websocket callback
     echo "Accepted"
-    let (success, error) = await(verifyWebsocketRequest(request, "bombardo"))
+    let (success, error) = await(verifyWebsocketRequest(request, PROTOCOL_NAME))
     if not success:
         await request.respond(Http400, "Websocket negotiation failed: " & error)
         echo error
@@ -131,7 +150,14 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                 packet.setData(f.data)
                 let processFut = workspace.onPacket(client, packet)
                 yield processFut
-                if processFut.failed: break
+                # Send internal error to client and break
+                if processFut.failed: 
+                    let stream = newLimitedStream()
+                    stream.addUint8(INTERNAL_ERROR)
+                    stream.toStart()
+                    discard send(client, stream)
+                    echo processFut.error.msg
+                    break
             else:
                 echo "Only binary protocol allowed"
                 break
@@ -139,16 +165,22 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
         request.client.close()
         echo "Done"
 
-proc send*(packet : string) : void =
+proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.} =
     # Send packet to client
-    discard
+    packet.toStart()
+    await client.socket.sendBinary(packet.readString(packet.len), false)
 
 proc setOnPacket*(call : RecievePacket) : void =
     # Set call on packet recieve
     workspace.onPacket = call
 
+proc listen*() : void =
+    # Start listen for clients
+    echo "Start listening"
+    waitFor workspace.server.serve(Port(9001), callback)
+
 proc init*() =
     # Init workspace
-    workspace = newWorkspace()
-    var server = newAsyncHttpServer()    
-    waitFor server.serve(Port(9001), callback)
+    echo "Init io device"
+    workspace = newWorkspace()    
+    echo "Init io device complete"    

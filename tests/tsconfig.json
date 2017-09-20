@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "target": "es6",        
+        "module": "amd",        
+        "outFile": "index.js",
+        "sourceMap": true,
+        "watch": true
+    }
+}
