@@ -1,8 +1,9 @@
 import
     os,
     asyncdispatch,
-    asyncfile,
-    streams
+    asyncfile,    
+    streams,
+    producer
 
 const LOG_FILE_NAME = "change.log"
 
@@ -111,6 +112,13 @@ type AddClassRecord* = ref object of LogRecord
     name* : string
     parentId* : uint64
 
+# Add new class record
+type AddFieldRecord* = ref object of LogRecord
+    name* : string
+    isClassField* : bool
+    valueType* : ValueType    
+    parentId* : uint64
+
 #############################################################################################
 # Workspace of data logger
 type Workspace = ref object
@@ -144,9 +152,7 @@ proc processRecord(reader : Reader) : Future[LogRecord] {.async.} =
 #############################################################################################
 # Public interface
 
-# proc newAddFieldRecord*(id : uint64, name : string, parentId : uint64) : AddClassRecord =
-#     # Create new AddClassRecord
-#     result = AddClassRecord(id : id, name : name, parentId : parentId)
+# TODO dont open file everytime
 
 proc logNewClass*(record : AddClassRecord) : Future[void] {.async.} =
     # Log new class
@@ -155,6 +161,20 @@ proc logNewClass*(record : AddClassRecord) : Future[void] {.async.} =
     writer.writeUint8(ADD_CLASS_COMMAND)
     writer.writeUint64(record.id)    
     writer.writeUint64(record.parentId)    
+    writer.writeString(record.name)
+    await file.write(writer.data)
+    file.close()
+
+proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
+    # Log new field
+    var file = openAsync(LOG_FILE_NAME, fmAppend)
+    var writer = newWriter()
+    if record.isClassField:
+        writer.writeUint8(ADD_CLASS_FIELD_COMMAND)
+    else:
+        writer.writeUint8(ADD_INSTANCE_FIELD_COMMAND)
+    writer.writeUint64(record.id)
+    writer.writeUint64(record.parentId)
     writer.writeString(record.name)
     await file.write(writer.data)
     file.close()

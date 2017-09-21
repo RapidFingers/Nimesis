@@ -88,7 +88,7 @@ proc processAddClassField(packet : LimitedStream, response : LimitedStream) : Fu
     let parentId = packet.readUint64()
     let parent = storage.getClassById(parentId)
     let nfield = producer.newClassField(name, parent)
-    await storage.storeNewField(nfield)
+    await storage.storeNewClassField(nfield)
     response.addOk(ADD_NEW_CLASS_FIELD)
 
 proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 

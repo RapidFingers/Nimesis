@@ -24,6 +24,9 @@ proc newWorkspace() : Workspace =
 #############################################################################################
 # Private
 
+# Forward declaration
+proc getClassById*(id : BiggestUInt) : Class
+
 proc placeToDatabase() : void =    
     # Place all log to database
     for record in dataLogger.allRecords():
@@ -42,6 +45,23 @@ proc loadFromDatabase() : void =
     let classes = database.getAllClasses()
     for k, v in classes:
         workspace.classes[v.id] = getClass(classes, v.id)
+
+    # Load all instances to memory
+
+    # Load all fields to memory
+    let fields = database.getAllFields()
+    for f in fields:
+        case f.parentType
+        of database.CLASS_PARENT:
+            let class = getClassById(f.parentId)
+            let field = producer.newClassField(f.id, f.name, class)
+            class.classFields.add(field)
+        of database.INSTANCE_PARENT:
+            discard
+        else: 
+            raise newException(Exception, "Unknown parent type")
+
+    # Load values to memory, except blobs
     
     echo "All data loaded from database"
 
@@ -63,12 +83,17 @@ proc storeNewClass*(class : Class) : Future[void] {.async.} =
 
     workspace.classes[class.id] = class
 
-proc storeNewField*(field : Field) : Future[void] {.async.} =
-    # Store new field data
-    discard
-    # var record = dataLogger.newAddFieldRecord(field.id, field.name, field.parent.id)
-    # await dataLogger.logNewField(record)
-    # field.parent
+proc storeNewClassField*(field : ClassField) : Future[void] {.async.} =
+    # Store new class field data    
+
+    var record = dataLogger.AddFieldRecord(
+        id : field.id,
+        name : field.name,
+        isClassField : true,
+        parentId : field.parent.id
+    )
+    await dataLogger.logNewField(record)
+    field.parent.classFields.add(field)
 
 proc getClassById*(id : BiggestUInt) : Class = 
     # Get class by id

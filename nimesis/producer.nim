@@ -151,7 +151,7 @@ proc newClass*(id : BiggestUInt, name : string, parent : Class) : Class =
     if not parent.isNil:        
         parent.childClasses.add(result)
 
-proc newClassField*(name : string, parent : Class) : Field = 
+proc newClassField*(name : string, parent : Class) : ClassField = 
     # Create new field
     result = ClassField(
         id : newId(),
@@ -159,7 +159,7 @@ proc newClassField*(name : string, parent : Class) : Field =
         parent : parent
     )
 
-proc newField*(id : BiggestUInt, name : string, parent : Class) : Field = 
+proc newClassField*(id : BiggestUInt, name : string, parent : Class) : Field = 
     # Create new field
     result = ClassField(
         id : id,
