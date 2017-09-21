@@ -18,10 +18,16 @@ type
         name* : string                       # Name of entity
         caption* : BiggestUInt               # Reference to caption
 
-    # Field of class or instance
+    # Base class Field
     Field* = ref object of Entity        
-        parent : EntityWithValues           # Parent entity
         valueType : ValueType               # Value type
+
+    # Field of class
+    ClassField* = ref object of Field
+        parent* : Class                     # Parent class
+
+    InstanceField* = ref object of Field
+        parent* : Instance                  # Parent instance
 
     # Argument of method
     Argument = ref object of RootObj
@@ -144,6 +150,22 @@ proc newClass*(id : BiggestUInt, name : string, parent : Class) : Class =
     result.parent = parent
     if not parent.isNil:        
         parent.childClasses.add(result)
+
+proc newClassField*(name : string, parent : Class) : Field = 
+    # Create new field
+    result = ClassField(
+        id : newId(),
+        name : name,
+        parent : parent
+    )
+
+proc newField*(id : BiggestUInt, name : string, parent : Class) : Field = 
+    # Create new field
+    result = ClassField(
+        id : id,
+        name : name,
+        parent : parent
+    )
 
 proc init*() =
     # Init producer

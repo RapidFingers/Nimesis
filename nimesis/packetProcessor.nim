@@ -13,10 +13,26 @@ const OK_RESPONSE = 1
 # Error response
 const ERROR_RESPONSE = 2
 
+# TODO possibility to iterate return data
+
 # Add new class
 const ADD_NEW_CLASS = 1
+# Add new class field
+const ADD_NEW_CLASS_FIELD = 2
+# Add new instance field
+const ADD_NEW_INSTANCE_FIELD = 3
+# Add new class
+const ADD_NEW_INSTANCE = 4
+# Get field value
+const GET_FIELD_VALUE = 5
+# Set field value
+const SET_FIELD_VALUE = 6
 # Get class by id
-const GET_CLASS_BY_ID = 2
+const GET_CLASS_BY_ID = 7
+# Get instance by id
+const GET_INSTANCE_BY_ID = 8
+# Invoke method
+const INVOKE_METHOD_BY_ID = 9
 
 #############################################################################################
 # Process errors
@@ -66,6 +82,15 @@ proc processAddNewClass(packet : LimitedStream, response : LimitedStream) : Futu
     await storage.storeNewClass(nclass)
     response.addOk(ADD_NEW_CLASS)
 
+proc processAddClassField(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} =
+    # Process add class field
+    let name = packet.readStringWithLen()
+    let parentId = packet.readUint64()
+    let parent = storage.getClassById(parentId)
+    let nfield = producer.newClassField(name, parent)
+    await storage.storeNewField(nfield)
+    response.addOk(ADD_NEW_CLASS_FIELD)
+
 proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
     # Process get class by id
     let classId = packet.readUint64()
@@ -92,6 +117,8 @@ proc processPacket(client : ClientData, packet : LimitedStream) {.async.} =
     case packetId
     of ADD_NEW_CLASS:
         await processAddNewClass(packet, response)
+    of ADD_NEW_CLASS_FIELD:
+        await processAddClassField(packet, response)
     of GET_CLASS_BY_ID:
         await processGetClassById(packet, response)
     else: 

@@ -144,9 +144,9 @@ proc processRecord(reader : Reader) : Future[LogRecord] {.async.} =
 #############################################################################################
 # Public interface
 
-proc newAddClassRecord*(id : uint64, name : string, parentId : uint64) : AddClassRecord =
-    # Create new AddClassRecord
-    result = AddClassRecord(id : id, name : name, parentId : parentId)
+# proc newAddFieldRecord*(id : uint64, name : string, parentId : uint64) : AddClassRecord =
+#     # Create new AddClassRecord
+#     result = AddClassRecord(id : id, name : name, parentId : parentId)
 
 proc logNewClass*(record : AddClassRecord) : Future[void] {.async.} =
     # Log new class

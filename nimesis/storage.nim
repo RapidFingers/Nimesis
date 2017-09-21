@@ -41,7 +41,6 @@ proc loadFromDatabase() : void =
     # Load all from database to memory
     let classes = database.getAllClasses()
     for k, v in classes:
-        echo k
         workspace.classes[v.id] = getClass(classes, v.id)
     
     echo "All data loaded from database"
@@ -55,10 +54,21 @@ proc storeNewClass*(class : Class) : Future[void] {.async.} =
     if not class.parent.isNil:
         parentId = class.parent.id
 
-    var record = dataLogger.newAddClassRecord(class.id, class.name, parentId)
+    var record = dataLogger.AddClassRecord(
+        id : class.id, 
+        name : class.name, 
+        parentId : parentId
+    )
     await dataLogger.logNewClass(record)
 
     workspace.classes[class.id] = class
+
+proc storeNewField*(field : Field) : Future[void] {.async.} =
+    # Store new field data
+    discard
+    # var record = dataLogger.newAddFieldRecord(field.id, field.name, field.parent.id)
+    # await dataLogger.logNewField(record)
+    # field.parent
 
 proc getClassById*(id : BiggestUInt) : Class = 
     # Get class by id
