@@ -69,16 +69,7 @@ proc readUint32*(this : LimitedStream) : uint32 =
 
 proc readUint64*(this : LimitedStream) : uint64 =
     # Read uint64
-    #result = uint64(this.data.readInt64)
-    echo this.readUint8()
-    echo this.readUint8()
-    echo this.readUint8()
-    echo this.readUint8()
-    echo this.readUint8()
-    echo this.readUint8()
-    echo this.readUint8()
-    echo this.readUint8()
-    result = 0
+    result = uint64(this.data.readInt64)
     this.len -= 8
 
 proc readString*(this : LimitedStream, len : int) : string =

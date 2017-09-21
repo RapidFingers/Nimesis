@@ -97,21 +97,15 @@ var Utils;
         addUint64(v) {
             this.checkSize(8);
             let s = v.toString(16);
-            console.log(s.length);
             let d = 16 - s.length;
             let pr = "";
-            console.log(d);
-            for (let i = 1; i < d; i++) {
+            for (let i = 1; i < d + 1; i++) {
                 pr += "0";
             }
-            console.log(pr);
             s = pr + s;
-            console.log(s);
-            for (let i = 0; i < s.length; i += 2) {
+            for (let i = s.length - 2; i > -2; i -= 2) {
                 let c = parseInt("0x" + (s.charAt(i) + s.charAt(i + 1)));
-                console.log(c);
                 this.addUint8(c);
-                //rs += s.charAt(i) + s.charAt(i+1);
             }
         }
         /**
