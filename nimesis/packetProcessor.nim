@@ -18,21 +18,19 @@ const ERROR_RESPONSE = 2
 # Add new class
 const ADD_NEW_CLASS = 1
 # Add new class field
-const ADD_NEW_CLASS_FIELD = 2
-# Add new instance field
-const ADD_NEW_INSTANCE_FIELD = 3
+const ADD_NEW_FIELD = 2
 # Add new class
-const ADD_NEW_INSTANCE = 4
+const ADD_NEW_INSTANCE = 3
 # Get field value
-const GET_FIELD_VALUE = 5
+const GET_FIELD_VALUE = 4
 # Set field value
-const SET_FIELD_VALUE = 6
+const SET_FIELD_VALUE = 5
 # Get class by id
-const GET_CLASS_BY_ID = 7
+const GET_CLASS_BY_ID = 6
 # Get instance by id
-const GET_INSTANCE_BY_ID = 8
+const GET_INSTANCE_BY_ID = 7
 # Invoke method
-const INVOKE_METHOD_BY_ID = 9
+const INVOKE_METHOD_BY_ID = 8
 
 #############################################################################################
 # Process errors
@@ -87,9 +85,13 @@ proc processAddClassField(packet : LimitedStream, response : LimitedStream) : Fu
     let name = packet.readStringWithLen()
     let parentId = packet.readUint64()
     let parent = storage.getClassById(parentId)
-    let nfield = producer.newClassField(name, parent)
-    await storage.storeNewClassField(nfield)
-    response.addOk(ADD_NEW_CLASS_FIELD)
+    let isClassField = packet.readBool() 
+    if isClassField:
+        let nfield = producer.newClassField(name, parent)
+        await storage.storeNewClassField(nfield)
+    else:
+        discard
+    response.addOk(ADD_NEW_FIELD)
 
 proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
     # Process get class by id
@@ -107,6 +109,30 @@ proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Fut
     else:
         response.addError(GET_CLASS_BY_ID, CLASS_NOT_FOUND)
 
+proc processGetFieldValue(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
+    # Process get field value
+    let fieldId = packet.readUint64()
+    let parentId = packet.readUint64()
+    let isClassField = packet.readBool()
+    var field : Field
+    if isClassField:
+        field = storage.getClassFieldById(parentId, fieldId)
+    storage.getFieldValue(field)
+    discard
+
+proc processSetFieldValue(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
+    # Process get field value
+    # let fieldId = 
+    # let parentId =
+    # let isClassField = 
+    # if isClassField:
+        # let field = storage.getClassFieldById(parentId, fieldId)
+    # else:
+    #   # let field = storage.getInstanceFieldById(parentId, fieldId)
+    # read value
+    # storage.setFieldValue(field, value)
+    discard
+
 #############################################################################################
 # Private
 
@@ -117,8 +143,12 @@ proc processPacket(client : ClientData, packet : LimitedStream) {.async.} =
     case packetId
     of ADD_NEW_CLASS:
         await processAddNewClass(packet, response)
-    of ADD_NEW_CLASS_FIELD:
+    of ADD_NEW_FIELD:
         await processAddClassField(packet, response)
+    of GET_FIELD_VALUE:
+        await processGetFieldValue(packet, response)
+    of SET_FIELD_VALUE:
+        await processSetFieldValue(packet, response)
     of GET_CLASS_BY_ID:
         await processGetClassById(packet, response)
     else: 

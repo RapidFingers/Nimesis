@@ -53,8 +53,8 @@ type
     Class* = ref object of EntityWithValues        
         parent* : Class                      # Parent class
         interfaces* : seq[Interface]         # Class interfaces
-        classFields* : seq[Field]            # Class static fields
-        instanceFields* : seq[Field]         # Instance fields        
+        classFields* : seq[ClassField]            # Class static fields
+        instanceFields* : seq[InstanceField]         # Instance fields        
         classMethods* : seq[Method]          # Class methods
         instanceMethods* : seq[Method]       # Instance methods
         instances* : seq[Instance]           # Instances of class
@@ -159,7 +159,7 @@ proc newClassField*(name : string, parent : Class) : ClassField =
         parent : parent
     )
 
-proc newClassField*(id : BiggestUInt, name : string, parent : Class) : Field = 
+proc newClassField*(id : BiggestUInt, name : string, parent : Class) : ClassField = 
     # Create new field
     result = ClassField(
         id : id,

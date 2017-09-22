@@ -3,6 +3,7 @@ import
     streams,
     asyncdispatch,
     asyncfile,
+    variant,
     producer,
     dataLogger,
     database
@@ -12,6 +13,7 @@ import
 type Workspace = ref object
     classes : TableRef[BiggestUInt, Class]                    # All classes
     instances : TableRef[BiggestUInt, Instance]               # All instances
+    values : TableRef[BiggestUInt, Variant]                   # Field values, except blobs
 
 var workspace {.threadvar.} : Workspace
 
@@ -20,6 +22,7 @@ proc newWorkspace() : Workspace =
     result = Workspace()
     result.classes = newTable[BiggestUInt, Class]()
     result.instances = newTable[BiggestUInt, Instance]()
+    result.values = newTable[BiggestUInt, Variant]()
 
 #############################################################################################
 # Private
@@ -84,7 +87,7 @@ proc storeNewClass*(class : Class) : Future[void] {.async.} =
     workspace.classes[class.id] = class
 
 proc storeNewClassField*(field : ClassField) : Future[void] {.async.} =
-    # Store new class field data    
+    # Store new class field data
 
     var record = dataLogger.AddFieldRecord(
         id : field.id,
@@ -98,6 +101,19 @@ proc storeNewClassField*(field : ClassField) : Future[void] {.async.} =
 proc getClassById*(id : BiggestUInt) : Class = 
     # Get class by id
     result = workspace.classes.getOrDefault(id)
+
+proc getClassFieldById*(id : BiggestUInt, classId : BiggestUInt) : ClassField =
+    # Get class field by id
+    let class = getClassById(id)
+    if class.isNil: return nil
+    for f in class.classFields:
+        if f.id == id: 
+            return f
+    return nil
+
+proc getFieldValue*(field : Field) : Variant = 
+    # Return field value
+    result = workspace.values.getOrDefault(field.id)
 
 proc init*() : void =
     # Init storage
