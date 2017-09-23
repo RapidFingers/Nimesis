@@ -13,7 +13,8 @@ import
 type Workspace = ref object
     classes : TableRef[BiggestUInt, Class]                    # All classes
     instances : TableRef[BiggestUInt, Instance]               # All instances
-    values : TableRef[BiggestUInt, Variant]                   # Field values, except blobs
+    fields : TableRef[BiggestUInt, Field]                     # All fields
+    values : TableRef[BiggestUInt, Value]                     # Field values, except blobs
 
 var workspace {.threadvar.} : Workspace
 
@@ -22,7 +23,8 @@ proc newWorkspace() : Workspace =
     result = Workspace()
     result.classes = newTable[BiggestUInt, Class]()
     result.instances = newTable[BiggestUInt, Instance]()
-    result.values = newTable[BiggestUInt, Variant]()
+    result.fields = newTable[BiggestUInt, Field]()
+    result.values = newTable[BiggestUInt, Value]()
 
 #############################################################################################
 # Private
@@ -97,23 +99,24 @@ proc storeNewClassField*(field : ClassField) : Future[void] {.async.} =
     )
     await dataLogger.logNewField(record)
     field.parent.classFields.add(field)
+    workspace.fields[field.id] = field
 
 proc getClassById*(id : BiggestUInt) : Class = 
     # Get class by id
     result = workspace.classes.getOrDefault(id)
 
-proc getClassFieldById*(id : BiggestUInt, classId : BiggestUInt) : ClassField =
-    # Get class field by id
-    let class = getClassById(id)
-    if class.isNil: return nil
-    for f in class.classFields:
-        if f.id == id: 
-            return f
-    return nil
+proc getFieldById*(id : BiggestUInt) : Field =
+    # Get field by id
+    result = workspace.fields.getOrDefault(id)
 
-proc getFieldValue*(field : Field) : Variant = 
-    # Return field value
+proc getFieldValue*(field : Field) : Value = 
+    # Return field value    
     result = workspace.values.getOrDefault(field.id)
+
+proc setFieldValue*(field : Field, value : Variant) : void =
+    # Set field value
+    #dataLogger.logNewValue()
+    workspace.values[field.id].value = value
 
 proc init*() : void =
     # Init storage

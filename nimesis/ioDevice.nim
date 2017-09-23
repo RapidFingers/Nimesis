@@ -76,6 +76,11 @@ proc readUint64*(this : LimitedStream) : uint64 =
     result = uint64(this.data.readInt64)
     this.len -= 8
 
+proc readInt32*(this : LimitedStream) : int32 =
+    # Read int32
+    result = this.data.readInt32()
+    this.len -= 4
+
 proc readString*(this : LimitedStream, len : int) : string =
     # Read string
     result = this.data.readStr(int len)
@@ -100,6 +105,11 @@ proc addUint64*(this : LimitedStream, value : uint64) : void =
     # Write uint64
     this.data.write(value)
     this.len += 8
+
+proc addInt32*(this : LimitedStream, value : int32) : void =
+    # Read int32
+    this.data.write(value)
+    this.len += 4
 
 proc addString*(this : LimitedStream, value : string) : void =
     # Write string

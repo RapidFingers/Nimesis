@@ -18,9 +18,14 @@ type
         name* : string                       # Name of entity
         caption* : BiggestUInt               # Reference to caption
 
+    # Value with info
+    Value* = ref object of RootObj
+        valueType* : ValueType               # Value type
+        value* : Variant                     # Variant value
+
     # Base class Field
-    Field* = ref object of Entity        
-        valueType : ValueType               # Value type
+    Field* = ref object of Entity
+        valueType* : ValueType               # Value type
 
     # Field of class
     ClassField* = ref object of Field
@@ -32,8 +37,7 @@ type
     # Argument of method
     Argument = ref object of RootObj
         name : string                       # Name of argument
-        valueType : ValueType               # Value type
-        value : Variant                     # Value of argument
+        value : Value                       # Value
 
     # Method
     Method* = ref object of Entity
@@ -47,7 +51,7 @@ type
         methods* : seq[Method]               # Interface methods
 
     EntityWithValues = ref object of Entity
-        values* : TableRef[BiggestUInt, Variant]      # Values for class fields
+        values* : TableRef[BiggestUInt, Value]     # Values for class fields
 
     # Class entity
     Class* = ref object of EntityWithValues        
@@ -93,7 +97,7 @@ proc initEntity(this : Entity, name : string) {.inline.} =
 proc initEntityWithValues(this : EntityWithValues, name : string) {.inline.} =
     # Init entity with values
     this.initEntity(name)
-    this.values = newTable[BiggestUInt, Variant](1)
+    this.values = newTable[BiggestUInt, Value](1)
 
 #############################################################################################
 # Class

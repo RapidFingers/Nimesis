@@ -37,16 +37,40 @@ const INVOKE_METHOD_BY_ID = 8
 
 # Class not found in storage
 const CLASS_NOT_FOUND = 1
+# Field not found in storage
+const FIELD_NOT_FOUND = 2
+# Value not found in storage
+const VALUE_NOT_FOUND = 3
 
 #############################################################################################
 # Private
+
+type FieldInfo = object
+    id : BiggestUInt
+    parentId : BiggestUInt
+    isClassField : bool
+
 
 proc readStringWithLen(this : LimitedStream) : string = 
     # Read string from string with len
     let len = int this.readUint8()
     result = this.readString(len)
 
-proc addStringWithLen(this : LimitedStream, value : string) : void = 
+proc readFieldInfo(this : LimitedStream) : FieldInfo =
+    # Read field info from stream
+    result.id = this.readUint64()
+    result.parentId = this.readUint64()
+    result.isClassField = this.readBool()
+
+proc readVariant(this : LimitedStream, valueType : ValueType) : Variant = 
+    # Read value from stream
+    case valueType:
+    of INT:
+        result = newVariant(this.readInt32())
+    else:
+        raise newException(Exception, "Unknown type")
+
+template addStringWithLen(this : LimitedStream, value : string) : void = 
     # Add string with len    
     this.addUint8(uint8 value.len)
     this.addString(value)
@@ -61,6 +85,15 @@ template addError(this : LimitedStream, packetId : uint8, errorCode : uint8) : v
     this.addUint8(ERROR_RESPONSE)
     this.addUint8(packetId)
     this.addUint8(errorCode)
+
+proc addValue(this : LimitedStream, packetId : uint8, value : Value) : void =
+    # Add variant value to response
+    case value.valueType
+    of INT:
+        this.addInt32(value.value.get(int32))
+    else:
+        raise newException(Exception, "Unknown type")
+    discard
 
 #############################################################################################
 # Workspace of packet processor
@@ -98,6 +131,7 @@ proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Fut
     let classId = packet.readUint64()
     echo classId
     let class = storage.getClassById(classId)
+    # TODO return error with Exceptions
     if not class.isNil:
         response.addOk(GET_CLASS_BY_ID)
         response.addUint64(classId)
@@ -112,26 +146,29 @@ proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Fut
 proc processGetFieldValue(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
     # Process get field value
     let fieldId = packet.readUint64()
-    let parentId = packet.readUint64()
-    let isClassField = packet.readBool()
-    var field : Field
-    if isClassField:
-        field = storage.getClassFieldById(parentId, fieldId)
-    storage.getFieldValue(field)
-    discard
+    let field = storage.getFieldById(fieldId)
+    # TODO return error with Exceptions
+    if field.isNil:
+        response.addError(GET_FIELD_VALUE, FIELD_NOT_FOUND)
+    else:
+        let value = storage.getFieldValue(field)
+        if value.isNil:
+            response.addError(GET_FIELD_VALUE, VALUE_NOT_FOUND)
+        else:
+            response.addValue(GET_FIELD_VALUE, value)
 
 proc processSetFieldValue(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
-    # Process get field value
-    # let fieldId = 
-    # let parentId =
-    # let isClassField = 
-    # if isClassField:
-        # let field = storage.getClassFieldById(parentId, fieldId)
-    # else:
-    #   # let field = storage.getInstanceFieldById(parentId, fieldId)
-    # read value
-    # storage.setFieldValue(field, value)
-    discard
+    # Process set field value
+    let fieldId = packet.readUint64()
+    var field : Field = nil
+    field = storage.getFieldById(fieldId)
+
+    if field.isNil:
+        response.addError(SET_FIELD_VALUE, FIELD_NOT_FOUND)
+    else:
+        let value = packet.readVariant(field.valueType)
+        storage.setFieldValue(field, value)
+        response.addOk(SET_FIELD_VALUE)
 
 #############################################################################################
 # Private

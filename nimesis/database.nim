@@ -18,9 +18,6 @@ const CLASS_PARENT* = 0
 const INSTANCE_PARENT* = 1
 
 #############################################################################################
-# Database sub products
-
-#############################################################################################
 # Database class
 
 type DbClass* = ref object of RootObj

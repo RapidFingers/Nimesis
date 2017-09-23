@@ -3,6 +3,7 @@ import
     asyncdispatch,
     asyncfile,    
     streams,
+    variant,
     producer
 
 const LOG_FILE_NAME = "change.log"
@@ -108,16 +109,21 @@ type LogRecord* = ref object of RootObj
 # AddClassRecord
 
 # Add new class record
-type AddClassRecord* = ref object of LogRecord    
-    name* : string
-    parentId* : uint64
+type 
+    AddClassRecord* = ref object of LogRecord    
+        name* : string
+        parentId* : uint64
 
-# Add new class record
-type AddFieldRecord* = ref object of LogRecord
-    name* : string
-    isClassField* : bool
-    valueType* : ValueType    
-    parentId* : uint64
+    # Add new class record
+    AddFieldRecord* = ref object of LogRecord
+        name* : string
+        isClassField* : bool
+        valueType* : ValueType
+        parentId* : uint64
+
+    SetValueRecord* = ref object of LogRecord
+        fieldId* : uint64
+        value* : Variant
 
 #############################################################################################
 # Workspace of data logger
@@ -178,6 +184,10 @@ proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
     writer.writeString(record.name)
     await file.write(writer.data)
     file.close()
+
+proc logSetValue*(record : SetValueRecord) : Future[void] {.async.} =
+    # Log set value
+    discard
 
 iterator allRecords*() : LogRecord = 
     # Iterate log file
