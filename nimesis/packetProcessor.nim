@@ -37,10 +37,12 @@ const INVOKE_METHOD_BY_ID = 8
 
 # Class not found in storage
 const CLASS_NOT_FOUND = 1
+# Instance not found in storage
+const INSTANCE_NOT_FOUND = 2
 # Field not found in storage
-const FIELD_NOT_FOUND = 2
+const FIELD_NOT_FOUND = 3
 # Value not found in storage
-const VALUE_NOT_FOUND = 3
+const VALUE_NOT_FOUND = 4
 
 #############################################################################################
 # Private
@@ -49,7 +51,6 @@ type FieldInfo = object
     id : BiggestUInt
     parentId : BiggestUInt
     isClassField : bool
-
 
 proc readStringWithLen(this : LimitedStream) : string = 
     # Read string from string with len
@@ -95,6 +96,12 @@ proc addValue(this : LimitedStream, packetId : uint8, value : Value) : void =
         raise newException(Exception, "Unknown type")
     discard
 
+template throwError(packetId : int, errorCode : uint8) : void =
+    # Throw simple error
+    var stream = newLimitedStream()
+    stream.addError(packetId, errorCode)
+    raise ioDevice.IoException(errorData : stream)
+
 #############################################################################################
 # Workspace of packet processor
 type Workspace = ref object
@@ -105,7 +112,7 @@ proc newWorkspace() : Workspace =
     result = Workspace()
 
 proc processAddNewClass(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
-    # Process get class packet
+    # Process add new class packet
     let name = packet.readStringWithLen()
     let parentId = packet.readUint64()
     let parent = storage.getClassById(parentId)
@@ -113,17 +120,24 @@ proc processAddNewClass(packet : LimitedStream, response : LimitedStream) : Futu
     await storage.storeNewClass(nclass)
     response.addOk(ADD_NEW_CLASS)
 
-proc processAddClassField(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} =
+proc processAddNewInstance(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
+    # Process add new instance
+    let name = packet.readStringWithLen()
+    let classId = packet.readUint64()
+    let class = storage.getClassById(classId)
+    if class.isNil: throwError(ADD_NEW_INSTANCE, CLASS_NOT_FOUND)
+    let ninstance = producer.newInstance(name, class)
+    await storage.storeNewInstance(ninstance)
+    response.addOk(ADD_NEW_INSTANCE)
+
+proc processAddField(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} =
     # Process add class field
     let name = packet.readStringWithLen()
     let parentId = packet.readUint64()
     let parent = storage.getClassById(parentId)
     let isClassField = packet.readBool() 
-    if isClassField:
-        let nfield = producer.newClassField(name, parent)
-        await storage.storeNewClassField(nfield)
-    else:
-        discard
+    let nfield = producer.newField(name, parent,isClassField)
+    await storage.storeNewField(nfield)
     response.addOk(ADD_NEW_FIELD)
 
 proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
@@ -131,31 +145,32 @@ proc processGetClassById(packet : LimitedStream, response : LimitedStream) : Fut
     let classId = packet.readUint64()
     echo classId
     let class = storage.getClassById(classId)
-    # TODO return error with Exceptions
-    if not class.isNil:
-        response.addOk(GET_CLASS_BY_ID)
-        response.addUint64(classId)
-        response.addStringWithLen(class.name)
-        if not class.parent.isNil:
-            response.addUint64(class.parent.id)
-        else:
-            response.addUint64(0)
+    if class.isNil: throwError(GET_CLASS_BY_ID, CLASS_NOT_FOUND)
+    response.addOk(GET_CLASS_BY_ID)
+    response.addUint64(classId)
+    response.addStringWithLen(class.name)
+    if not class.parent.isNil:
+        response.addUint64(class.parent.id)
     else:
-        response.addError(GET_CLASS_BY_ID, CLASS_NOT_FOUND)
+        response.addUint64(0)
 
 proc processGetFieldValue(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
     # Process get field value
     let fieldId = packet.readUint64()
     let field = storage.getFieldById(fieldId)
-    # TODO return error with Exceptions
-    if field.isNil:
-        response.addError(GET_FIELD_VALUE, FIELD_NOT_FOUND)
+    if field.isNil: throwError(GET_FIELD_VALUE, FIELD_NOT_FOUND)        
+    
+    var value : Value = nil
+    if field.isClassField:
+        value = storage.getFieldValue(field)
     else:
-        let value = storage.getFieldValue(field)
-        if value.isNil:
-            response.addError(GET_FIELD_VALUE, VALUE_NOT_FOUND)
-        else:
-            response.addValue(GET_FIELD_VALUE, value)
+        let instanceId = packet.readUint64()        
+        let instance = storage.geInstanceById(instanceId)
+        if instance.isNil: throwError(GET_FIELD_VALUE, INSTANCE_NOT_FOUND)
+        value = storage.getFieldValue(field, instance)
+        
+    if value.isNil: throwError(GET_FIELD_VALUE, VALUE_NOT_FOUND)        
+    response.addValue(GET_FIELD_VALUE, value)
 
 proc processSetFieldValue(packet : LimitedStream, response : LimitedStream) : Future[void] {.async.} = 
     # Process set field value
@@ -163,12 +178,10 @@ proc processSetFieldValue(packet : LimitedStream, response : LimitedStream) : Fu
     var field : Field = nil
     field = storage.getFieldById(fieldId)
 
-    if field.isNil:
-        response.addError(SET_FIELD_VALUE, FIELD_NOT_FOUND)
-    else:
-        let value = packet.readVariant(field.valueType)
-        storage.setFieldValue(field, value)
-        response.addOk(SET_FIELD_VALUE)
+    if field.isNil: throwError(SET_FIELD_VALUE, FIELD_NOT_FOUND)
+    let value = packet.readVariant(field.valueType)
+    storage.setFieldValue(field, value)
+    response.addOk(SET_FIELD_VALUE)
 
 #############################################################################################
 # Private
@@ -180,15 +193,17 @@ proc processPacket(client : ClientData, packet : LimitedStream) {.async.} =
     case packetId
     of ADD_NEW_CLASS:
         await processAddNewClass(packet, response)
+    of ADD_NEW_INSTANCE:
+        await processAddNewInstance(packet, response)
     of ADD_NEW_FIELD:
-        await processAddClassField(packet, response)
+        await processAddField(packet, response)
     of GET_FIELD_VALUE:
         await processGetFieldValue(packet, response)
     of SET_FIELD_VALUE:
         await processSetFieldValue(packet, response)
     of GET_CLASS_BY_ID:
         await processGetClassById(packet, response)
-    else: 
+    else:
         raise newException(Exception, "Unknown command")
         
     await ioDevice.send(client, response)

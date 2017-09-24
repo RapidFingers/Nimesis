@@ -14,7 +14,6 @@ type Workspace = ref object
     classes : TableRef[BiggestUInt, Class]                    # All classes
     instances : TableRef[BiggestUInt, Instance]               # All instances
     fields : TableRef[BiggestUInt, Field]                     # All fields
-    values : TableRef[BiggestUInt, Value]                     # Field values, except blobs
 
 var workspace {.threadvar.} : Workspace
 
@@ -24,7 +23,6 @@ proc newWorkspace() : Workspace =
     result.classes = newTable[BiggestUInt, Class]()
     result.instances = newTable[BiggestUInt, Instance]()
     result.fields = newTable[BiggestUInt, Field]()
-    result.values = newTable[BiggestUInt, Value]()
 
 #############################################################################################
 # Private
@@ -88,7 +86,11 @@ proc storeNewClass*(class : Class) : Future[void] {.async.} =
 
     workspace.classes[class.id] = class
 
-proc storeNewClassField*(field : ClassField) : Future[void] {.async.} =
+proc storeNewInstance*(instance : Instance) : Future[void] {.async.} =
+    # Store new instance data
+    discard
+
+proc storeNewField*(field : Field) : Future[void] {.async.} =
     # Store new class field data
 
     var record = dataLogger.AddFieldRecord(
@@ -105,18 +107,27 @@ proc getClassById*(id : BiggestUInt) : Class =
     # Get class by id
     result = workspace.classes.getOrDefault(id)
 
+proc geInstanceById*(id : BiggestUInt) : Instance =
+    # Get instance by id
+    result = workspace.instances.getOrDefault(id)
+
 proc getFieldById*(id : BiggestUInt) : Field =
     # Get field by id
     result = workspace.fields.getOrDefault(id)
 
 proc getFieldValue*(field : Field) : Value = 
-    # Return field value    
-    result = workspace.values.getOrDefault(field.id)
+    # Return field value of class
+    result = field.parent.values.getOrDefault(field.id)
+
+proc getFieldValue*(field : Field, instance : Instance) : Value =
+    # Return field value of instance
+    result = instance.values.getOrDefault(field.id)
 
 proc setFieldValue*(field : Field, value : Variant) : void =
     # Set field value
     #dataLogger.logNewValue()
-    workspace.values[field.id].value = value
+    #workspace.values[field.id].value = value
+    discard
 
 proc init*() : void =
     # Init storage

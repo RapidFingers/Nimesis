@@ -100,19 +100,22 @@ proc readUint64(this : Reader) : Future[uint64] {.async.} =
              uint64(uint8 str[0])
 
 #############################################################################################
-# LogRecord
+# Log records
 
-type LogRecord* = ref object of RootObj
-    id* : uint64
-
-#############################################################################################
-# AddClassRecord
-
-# Add new class record
 type 
-    AddClassRecord* = ref object of LogRecord    
+    # Base record
+    LogRecord* = ref object of RootObj
+        id* : uint64
+
+    # Add new class record
+    AddClassRecord* = ref object of LogRecord
         name* : string
         parentId* : uint64
+
+    # Add new instance record
+    AddInstanceRecord* = ref object of LogRecord
+        name* : string
+        classId* : uint64
 
     # Add new class record
     AddFieldRecord* = ref object of LogRecord
@@ -121,6 +124,7 @@ type
         valueType* : ValueType
         parentId* : uint64
 
+    # Set value record
     SetValueRecord* = ref object of LogRecord
         fieldId* : uint64
         value* : Variant
@@ -184,6 +188,10 @@ proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
     writer.writeString(record.name)
     await file.write(writer.data)
     file.close()
+
+proc logNewInstance*(record : AddInstanceRecord) : Future[void] {.async.} =
+    # Log new instance
+    discard
 
 proc logSetValue*(record : SetValueRecord) : Future[void] {.async.} =
     # Log set value

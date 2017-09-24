@@ -25,19 +25,14 @@ type
 
     # Base class Field
     Field* = ref object of Entity
+        parent* : Class                      # Parent class
+        isClassField* : bool                 # Is class field or instance field
         valueType* : ValueType               # Value type
-
-    # Field of class
-    ClassField* = ref object of Field
-        parent* : Class                     # Parent class
-
-    InstanceField* = ref object of Field
-        parent* : Instance                  # Parent instance
 
     # Argument of method
     Argument = ref object of RootObj
-        name : string                       # Name of argument
-        value : Value                       # Value
+        name : string                        # Name of argument
+        value : Value                        # Value
 
     # Method
     Method* = ref object of Entity
@@ -57,8 +52,8 @@ type
     Class* = ref object of EntityWithValues        
         parent* : Class                      # Parent class
         interfaces* : seq[Interface]         # Class interfaces
-        classFields* : seq[ClassField]            # Class static fields
-        instanceFields* : seq[InstanceField]         # Instance fields        
+        classFields* : seq[Field]            # Class static fields
+        instanceFields* : seq[Field]         # Instance fields        
         classMethods* : seq[Method]          # Class methods
         instanceMethods* : seq[Method]       # Instance methods
         instances* : seq[Instance]           # Instances of class
@@ -152,23 +147,31 @@ proc newClass*(id : BiggestUInt, name : string, parent : Class) : Class =
     result.initClass(name, parent)
     result.id = id
     result.parent = parent
-    if not parent.isNil:        
+    if not parent.isNil:
         parent.childClasses.add(result)
 
-proc newClassField*(name : string, parent : Class) : ClassField = 
+proc newInstance*(name : string, class : Class) : Instance =
+    # Create new instance
+    result = Instance()
+    result.initInstance(name, class)
+    result.id = newId()
+
+proc newField*(name : string, parent : Class, isClassField : bool) : Field = 
     # Create new field
-    result = ClassField(
+    result = Field(
         id : newId(),
         name : name,
-        parent : parent
+        parent : parent,
+        isClassField : isClassField
     )
 
-proc newClassField*(id : BiggestUInt, name : string, parent : Class) : ClassField = 
-    # Create new field
-    result = ClassField(
+proc newClassField*(id : BiggestUInt, name : string, parent : Class, isClassField : bool) : Field = 
+    # Create new field with id
+    result = Field(
         id : id,
         name : name,
-        parent : parent
+        parent : parent,
+        isClassField : isClassField
     )
 
 proc init*() =

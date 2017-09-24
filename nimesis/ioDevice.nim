@@ -129,6 +129,13 @@ proc newClientData*(socket : AsyncSocket) : ClientData =
     result = ClientData(socket : socket)
 
 #############################################################################################
+# IoException
+
+# Send to client then something goes wrong
+type IoException* = ref object of Exception
+    errorData* : LimitedStream
+
+#############################################################################################
 type RecievePacket* = proc(client : ClientData, packet : LimitedStream) : Future[void]
 type Workspace = ref object
     onPacket : RecievePacket
@@ -142,6 +149,7 @@ var workspace {.threadvar.} : Workspace
 
 proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.}
 
+# TODO: too complex
 proc callback(request: Request) : Future[void] {.async, gcsafe.} =
     # Websocket callback
     echo "Accepted"
@@ -165,13 +173,20 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                 let processFut = workspace.onPacket(client, packet)
                 yield processFut
                 # Send internal error to client and break
-                if processFut.failed: 
-                    let stream = newLimitedStream()
-                    stream.addUint8(INTERNAL_ERROR)
-                    stream.toStart()
-                    discard send(client, stream)
-                    echo processFut.error.msg
-                    break
+                if processFut.failed:
+                    # If known exception
+                    if processFut.error of IoException:
+                        let exception = IoException(processFut.error)
+                        discard send(client, exception.errorData)
+                        break
+                    # If unknown exception
+                    else:
+                        let stream = newLimitedStream()
+                        stream.addUint8(INTERNAL_ERROR)
+                        stream.toStart()
+                        discard send(client, stream)
+                        echo processFut.error.msg
+                        break
             else:
                 echo "Only binary protocol allowed"
                 break
