@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS instances (
 
 CREATE TABLE IF NOT EXISTS fields (
     id INTEGER PRIMARY KEY,
-    parentType INTEGER,
-    parentId INTEGER,
+    isClassField INTEGER,
+    classId INTEGER,
     valueType INTEGER,
     valueId INTEGER,
     name VARCHAR(100) NOT NULL
-)
+);

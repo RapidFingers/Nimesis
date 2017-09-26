@@ -25,7 +25,7 @@ type
 
     # Base class Field
     Field* = ref object of Entity
-        parent* : Class                      # Parent class
+        class* : Class                      # Parent class
         isClassField* : bool                 # Is class field or instance field
         valueType* : ValueType               # Value type
 
@@ -36,7 +36,8 @@ type
 
     # Method
     Method* = ref object of Entity
-        parent : Entity                     # Parent entity
+        class : Class                        # Parent class
+        isClassMethod : bool                 # Is class method or instance
         arguments : seq[Argument]
         returnArg : Argument
 
@@ -161,16 +162,16 @@ proc newField*(name : string, parent : Class, isClassField : bool) : Field =
     result = Field(
         id : newId(),
         name : name,
-        parent : parent,
+        class : parent,
         isClassField : isClassField
     )
 
-proc newClassField*(id : BiggestUInt, name : string, parent : Class, isClassField : bool) : Field = 
+proc newField*(id : BiggestUInt, name : string, parent : Class, isClassField : bool) : Field = 
     # Create new field with id
     result = Field(
         id : id,
         name : name,
-        parent : parent,
+        class : parent,
         isClassField : isClassField
     )
 

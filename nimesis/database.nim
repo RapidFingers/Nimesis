@@ -18,20 +18,30 @@ const CLASS_PARENT* = 0
 const INSTANCE_PARENT* = 1
 
 #############################################################################################
-# Database class
+# Database types
 
-type DbClass* = ref object of RootObj
-    id* : BiggestUInt
-    parentId* : BiggestUInt
-    name* : string    
+type 
+    DbEntity* = ref object of RootObj
+        id* : BiggestUInt
 
-type DbField* = ref object of RootObj
-    id* : BiggestUInt
-    parentId* : BiggestUInt
-    name* : string
-    parentType* : uint8
-    valueType* : uint8
-    valueId* : BiggestUInt
+    DbClass* = ref object of DbEntity        
+        parentId* : BiggestUInt
+        name* : string
+
+    DbInstance* = ref object of DbEntity        
+        classId* : BiggestUInt
+        name* : string
+
+    DbField* = ref object of DbEntity
+        classId* : BiggestUInt
+        name* : string
+        isClassField* : uint8
+        valueType* : uint8
+        valueId* : BiggestUInt
+
+    DbValue* = ref object of DbEntity
+        fieldId* : BiggestUInt
+        instanceId* : BiggestUInt
 
 #############################################################################################
 # Workspace of database
@@ -77,7 +87,7 @@ proc writeLogRecord*(record : LogRecord) : void =
         if not rec.isClassField:
             parentType = INSTANCE_PARENT
         workspace.db.exec(sql("INSERT INTO fields(id,name,parentType,parentId,valueType) VALUES(?,?,?,?,?)"), 
-                          rec.id, rec.name, parentType, rec.parentId, rec.valueType)
+                          rec.id, rec.name, parentType, rec.classId, rec.valueType)
 
 proc getAllClasses*() : TableRef[BiggestUInt, DbClass] = 
     # Iterate all classes from database
@@ -89,11 +99,22 @@ proc getAllClasses*() : TableRef[BiggestUInt, DbClass] =
             parentId : parseBiggestUInt(row[1]), 
             name : row[2]
         )
+
+proc getAllInstances*() : TableRef[BiggestUInt, DbInstance] = 
+    # Iterate all instances from database
+    result = newTable[BiggestUInt, DbInstance]()
+    for row in workspace.db.fastRows(sql("SELECT id,classId,name FROM instances")):
+        let id = parseBiggestUInt(row[0])
+        result[id] = DbInstance(
+            id : id, 
+            classId : parseBiggestUInt(row[1]),
+            name : row[2]
+        )
     
 proc getAllFields*() : seq[DbField] =
     # Get class and instance fields
     result = newSeq[DbField]()
-    for row in workspace.db.fastRows(sql("SELECT id,name,parentType,parentId,valueType FROM fields")):
+    for row in workspace.db.fastRows(sql("SELECT id,name,isClassField,classId,valueType FROM fields")):
         let valueIdStr : string = row[5]
         var valueId = 0'u64
         if not valueIdStr.isNil:
@@ -103,12 +124,15 @@ proc getAllFields*() : seq[DbField] =
             DbField(
                 id : parseBiggestUInt(row[0]),
                 name : row[1],
-                parentType : uint8 parseInt(row[2]),
-                parentId : parseBiggestUInt(row[3]),
+                isClassField : uint8 parseInt(row[2]),
+                classId : parseBiggestUInt(row[3]),
                 valueType : uint8 parseInt(row[4]),
                 valueId : valueId
             )
         )
+
+proc getAllValues*() : seq[DbValue] =
+    result = newSeq[DbField]()
 
 proc init*() : void =
     # Init database

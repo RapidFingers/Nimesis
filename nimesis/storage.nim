@@ -29,6 +29,7 @@ proc newWorkspace() : Workspace =
 
 # Forward declaration
 proc getClassById*(id : BiggestUInt) : Class
+proc getInstanceById*(id : BiggestUInt) : Instance
 
 proc placeToDatabase() : void =    
     # Place all log to database
@@ -50,17 +51,20 @@ proc loadFromDatabase() : void =
         workspace.classes[v.id] = getClass(classes, v.id)
 
     # Load all instances to memory
+    let instances = database.getAllInstances()
 
     # Load all fields to memory
-    let fields = database.getAllFields()
+    let fields = database.getAllFields()    
     for f in fields:
+        let class = getClassById(f.parentId)
+        if class.isNil: continue
         case f.parentType
-        of database.CLASS_PARENT:
-            let class = getClassById(f.parentId)
-            let field = producer.newClassField(f.id, f.name, class)
+        of database.CLASS_PARENT:            
+            let field = producer.newField(f.id, f.name, class, true)
             class.classFields.add(field)
-        of database.INSTANCE_PARENT:
-            discard
+        of database.INSTANCE_PARENT:            
+            let field = producer.newField(f.id, f.name, class, false)
+            class.instanceFields.add(field)
         else: 
             raise newException(Exception, "Unknown parent type")
 
@@ -97,17 +101,17 @@ proc storeNewField*(field : Field) : Future[void] {.async.} =
         id : field.id,
         name : field.name,
         isClassField : true,
-        parentId : field.parent.id
+        classId : field.class.id
     )
     await dataLogger.logNewField(record)
-    field.parent.classFields.add(field)
+    field.class.classFields.add(field)
     workspace.fields[field.id] = field
 
 proc getClassById*(id : BiggestUInt) : Class = 
     # Get class by id
     result = workspace.classes.getOrDefault(id)
 
-proc geInstanceById*(id : BiggestUInt) : Instance =
+proc getInstanceById*(id : BiggestUInt) : Instance =
     # Get instance by id
     result = workspace.instances.getOrDefault(id)
 
@@ -117,7 +121,7 @@ proc getFieldById*(id : BiggestUInt) : Field =
 
 proc getFieldValue*(field : Field) : Value = 
     # Return field value of class
-    result = field.parent.values.getOrDefault(field.id)
+    result = field.class.values.getOrDefault(field.id)
 
 proc getFieldValue*(field : Field, instance : Instance) : Value =
     # Return field value of instance
