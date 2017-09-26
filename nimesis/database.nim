@@ -43,6 +43,19 @@ type
         fieldId* : BiggestUInt
         instanceId* : BiggestUInt
 
+    DbIntValue* = ref object of DbValue
+        value* : int
+    
+    DbFloatValue* = ref object of DbValue
+        value* : float64
+
+    DbStringValue* = ref object of DbValue
+        value* : string
+
+    DbEntityValue* = ref object of DbValue
+        value* : uint64
+
+
 #############################################################################################
 # Workspace of database
 type Workspace = ref object
@@ -100,13 +113,11 @@ proc getAllClasses*() : TableRef[BiggestUInt, DbClass] =
             name : row[2]
         )
 
-proc getAllInstances*() : TableRef[BiggestUInt, DbInstance] = 
+iterator instances*() : DbInstance =
     # Iterate all instances from database
-    result = newTable[BiggestUInt, DbInstance]()
     for row in workspace.db.fastRows(sql("SELECT id,classId,name FROM instances")):
-        let id = parseBiggestUInt(row[0])
-        result[id] = DbInstance(
-            id : id, 
+        yield DbInstance(
+            id : parseBiggestUInt(row[0]), 
             classId : parseBiggestUInt(row[1]),
             name : row[2]
         )
@@ -131,8 +142,43 @@ proc getAllFields*() : seq[DbField] =
             )
         )
 
-proc getAllValues*() : seq[DbValue] =
-    result = newSeq[DbField]()
+iterator values*() : DbValue =
+    # Iterate all values
+
+    # Int values
+    var query = "SELECT id,instanceId,value FROM v_int ORDER BY id"
+    for row in workspace.db.fastRows(sql(query)):
+        yield DbIntValue(
+            id : parseBiggestUInt(row[0]),
+            instanceId : parseBiggestUInt(row[1]),
+            value : parseInt(row[2])
+        )
+    
+    # Float values
+    query = "SELECT id,instanceId,value FROM v_float ORDER BY id"
+    for row in workspace.db.fastRows(sql(query)):
+        yield DbFloatValue(
+            id : parseBiggestUInt(row[0]),
+            instanceId : parseBiggestUInt(row[1]),
+            value : parseFloat(row[2])
+        )
+
+    # String values
+    query = "SELECT id,instanceId,value FROM v_string ORDER BY id"
+    for row in workspace.db.fastRows(sql(query)):
+        yield DbStringValue(
+            id : parseBiggestUInt(row[0]),
+            instanceId : parseBiggestUInt(row[1]),
+            value : row[2]
+        )
+    # Entity values
+    query = "SELECT id,instanceId,value FROM v_entity ORDER BY id"
+    for row in workspace.db.fastRows(sql(query)):
+        yield DbEntityValue(
+            id : parseBiggestUInt(row[0]),
+            instanceId : parseBiggestUInt(row[1]),
+            value : parseBiggestUInt(row[2])
+        )
 
 proc init*() : void =
     # Init database
