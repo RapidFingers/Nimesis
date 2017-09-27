@@ -3,11 +3,11 @@ import
     os,
     asyncdispatch,
     asyncfile,
-    tables,
-    dataLogger,
+    tables,    
     variant,
-    db_sqlite
-    producer,    
+    db_sqlite,
+    dataLogger,
+    producer   # TODO: remove
 
 # Database file name
 const DATABASE_FILE_NAME = "database.dat"
@@ -80,9 +80,12 @@ proc initDatabase() : void =
             raise newException(Exception, "Can't find create database script")
 
         let file = asyncfile.openAsync(createScript, fmRead)
-        let data = waitFor file.readAll()
+        let data = waitFor file.readAll()        
         let db = open(DATABASE_FILE_NAME, "", "", "")
-        db.exec(sql(data))
+        let queries = data.split("--")
+        for q in queries:
+            echo q
+            db.exec(sql(q))
         workspace.db = db
     else:
         workspace.db = open(DATABASE_FILE_NAME, "", "", "")
@@ -115,7 +118,7 @@ proc writeSetValue*(rec : SetValueRecord) : void =
         workspace.db.exec(sql("INSERT INTO v_int(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(int32))
     of FLOAT:
         workspace.db.exec(sql("INSERT INTO v_float(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(float64))
-    of FLOAT:
+    of STRING:
         workspace.db.exec(sql("INSERT INTO v_string(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(string))
     else:
         raise newException(Exception, "Unknown type")    

@@ -165,7 +165,7 @@ proc processGetFieldValue(packet : LimitedStream, response : LimitedStream) : Fu
         value = storage.getFieldValue(field)
     else:
         let instanceId = packet.readUint64()        
-        let instance = storage.geInstanceById(instanceId)
+        let instance = storage.getInstanceById(instanceId)
         if instance.isNil: throwError(GET_FIELD_VALUE, INSTANCE_NOT_FOUND)
         value = storage.getFieldValue(field, instance)
         

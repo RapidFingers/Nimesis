@@ -174,14 +174,15 @@ var workspace {.threadvar.} : Workspace
 
 proc newWorkspace() : Workspace =
     # Create new workspace
-    result = Workspace()
-    result.file = openAsync(LOG_FILE_NAME, fmAppend) 
+    result = Workspace()    
 
 #############################################################################################
 # Private
 
 proc getWriter() : Writer =
     # Get writer to file
+    if workspace.file.isNil:
+        result.file = openAsync(LOG_FILE_NAME, fmAppend)
     result = newWriter(workspace.file)
 
 proc processAddClass(data : Reader) : Future[AddClassRecord] {.async.} =
@@ -228,7 +229,7 @@ proc processSetValue(data : Reader, isClassField : bool = true) : Future[SetValu
     of STRING:
         variant = newVariant(await data.readStringWithLen())
     else:
-        raise newException(Exception, "")
+        raise newException(Exception, "Unknown type")
 
     value.value = variant
     result.value = value

@@ -51,22 +51,19 @@ proc loadFromDatabase() : void =
         workspace.classes[v.id] = getClass(classes, v.id)
 
     # Load all instances to memory
-    let instances = database.getAllInstances()
+    #let instances = database.getAllInstances()
 
     # Load all fields to memory
     let fields = database.getAllFields()    
     for f in fields:
-        let class = getClassById(f.parentId)
+        let class = getClassById(f.classId)
         if class.isNil: continue
-        case f.parentType
-        of database.CLASS_PARENT:            
+        if bool(f.isClassField):
             let field = producer.newField(f.id, f.name, class, true)
             class.classFields.add(field)
-        of database.INSTANCE_PARENT:            
+        else:
             let field = producer.newField(f.id, f.name, class, false)
             class.instanceFields.add(field)
-        else: 
-            raise newException(Exception, "Unknown parent type")
 
     # Load values to memory, except blobs
     
@@ -82,7 +79,7 @@ proc storeNewClass*(class : Class) : Future[void] {.async.} =
         parentId = class.parent.id
 
     var record = dataLogger.AddClassRecord(
-        id : class.id, 
+        id : class.id,
         name : class.name, 
         parentId : parentId
     )
