@@ -6,6 +6,7 @@ import
 #############################################################################################
 # Products
 type
+    # TODO: place in other module
     # Possible value types to store
     ValueType* = enum
         INT = 0, 

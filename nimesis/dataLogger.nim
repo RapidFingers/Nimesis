@@ -157,13 +157,13 @@ type
         valueType* : ValueType                  # Value type        
 
     # Set value record
-    SetValueRecord* = ref object of LogRecord
-        case isClassField*: bool                # Is class field
+    SetValueRecord* = ref object of LogRecord                
+        case isClassField*: bool                # Is class field                    
         of false:
             instanceId* : uint64                # Parent of value class or instance
         else:
             discard
-        value : Value                           # Value type and value
+        value* : Value                           # Value type and value
 
 #############################################################################################
 # Workspace of data logger

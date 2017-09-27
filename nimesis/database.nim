@@ -5,7 +5,9 @@ import
     asyncfile,
     tables,
     dataLogger,
+    variant,
     db_sqlite
+    producer,    
 
 # Database file name
 const DATABASE_FILE_NAME = "database.dat"
@@ -89,18 +91,45 @@ proc initDatabase() : void =
 #############################################################################################
 # Public interface
 
+proc writeAddClass*(rec : AddClassRecord) : void =
+    # Write add class record to database
+    workspace.db.exec(sql("INSERT INTO classes(id,parentId,name) VALUES(?,?,?)"), rec.id, rec.parentId, rec.name)
+
+proc writeAddInstance*(rec : AddInstanceRecord) : void =
+    # Write add instance record to database
+    workspace.db.exec(sql("INSERT INTO instances(id,classId,name) VALUES(?,?,?)"), rec.id, rec.classId, rec.name)
+
+proc writeAddField*(rec : AddFieldRecord) : void =
+    # Write add field record to database
+    workspace.db.exec(sql("INSERT INTO fields(id,name,isClassField,classId,valueType) VALUES(?,?,?,?,?)"), 
+                      rec.id, rec.name, rec.isClassField, rec.classId, rec.valueType)
+
+proc writeSetValue*(rec : SetValueRecord) : void =
+    # Write set value record to database
+    var instanceId  = 0'u64
+    if not rec.isClassField:
+        instanceId = rec.instanceId
+
+    case rec.value.valueType
+    of INT:
+        workspace.db.exec(sql("INSERT INTO v_int(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(int32))
+    of FLOAT:
+        workspace.db.exec(sql("INSERT INTO v_float(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(float64))
+    of FLOAT:
+        workspace.db.exec(sql("INSERT INTO v_string(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(string))
+    else:
+        raise newException(Exception, "Unknown type")    
+
 proc writeLogRecord*(record : LogRecord) : void =
     # Write log record to database
     if record of AddClassRecord:
-        let rec = AddClassRecord(record)
-        workspace.db.exec(sql("INSERT INTO classes(id,parentId,name) VALUES(?,?,?)"), rec.id, rec.parentId, rec.name)
-    if record of AddFieldRecord:
-        let rec = AddFieldRecord(record)
-        var parentType = CLASS_PARENT
-        if not rec.isClassField:
-            parentType = INSTANCE_PARENT
-        workspace.db.exec(sql("INSERT INTO fields(id,name,parentType,parentId,valueType) VALUES(?,?,?,?,?)"), 
-                          rec.id, rec.name, parentType, rec.classId, rec.valueType)
+        writeAddClass(AddClassRecord(record))                
+    elif record of AddInstanceRecord:
+        writeAddInstance(AddInstanceRecord(record))
+    elif record of AddFieldRecord:
+        writeAddField(AddFieldRecord(record))
+    elif record of SetValueRecord:
+        writeSetValue(SetValueRecord(record))
 
 proc getAllClasses*() : TableRef[BiggestUInt, DbClass] = 
     # Iterate all classes from database
