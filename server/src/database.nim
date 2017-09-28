@@ -11,6 +11,8 @@ import
 
 # Database file name
 const DATABASE_FILE_NAME = "database.dat"
+# Directory for resources
+const RESOURCE_DIR = "resources"
 # Script of database create
 const CREATE_DATABASE_NAME = "createDatabase.sql"
 
@@ -75,7 +77,7 @@ proc newWorkspace() : Workspace =
 proc initDatabase() : void =
     # Init database
     if not os.fileExists(DATABASE_FILE_NAME):
-        let createScript = "../assets/$1" % CREATE_DATABASE_NAME
+        let createScript = "./$1/$2" % [RESOURCE_DIR, CREATE_DATABASE_NAME]
         if not os.fileExists(createScript): 
             raise newException(Exception, "Can't find create database script")
 
@@ -84,7 +86,6 @@ proc initDatabase() : void =
         let db = open(DATABASE_FILE_NAME, "", "", "")
         let queries = data.split("--")
         for q in queries:
-            echo q
             db.exec(sql(q))
         workspace.db = db
     else:

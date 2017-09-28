@@ -4,64 +4,19 @@ import
     tables,
     times,    
     variant,
-    ioDevice,    
+    ../../shared/packets,
+    ../../shared/limitedStream,
+    ioDevice,
     producer,
     storage
 
-# Response codes
-const OK_RESPONSE = 1
-# Error response
-const ERROR_RESPONSE = 2
-
-# TODO possibility to iterate return data
-
-# Add new class
-const ADD_NEW_CLASS = 1
-# Add new class field
-const ADD_NEW_FIELD = 2
-# Add new class
-const ADD_NEW_INSTANCE = 3
-# Get field value
-const GET_FIELD_VALUE = 4
-# Set field value
-const SET_FIELD_VALUE = 5
-# Get class by id
-const GET_CLASS_BY_ID = 6
-# Get instance by id
-const GET_INSTANCE_BY_ID = 7
-# Invoke method
-const INVOKE_METHOD_BY_ID = 8
-
-#############################################################################################
-# Process errors
-
-# Class not found in storage
-const CLASS_NOT_FOUND = 1
-# Instance not found in storage
-const INSTANCE_NOT_FOUND = 2
-# Field not found in storage
-const FIELD_NOT_FOUND = 3
-# Value not found in storage
-const VALUE_NOT_FOUND = 4
-
 #############################################################################################
 # Private
-
-type FieldInfo = object
-    id : BiggestUInt
-    parentId : BiggestUInt
-    isClassField : bool
 
 proc readStringWithLen(this : LimitedStream) : string = 
     # Read string from string with len
     let len = int this.readUint8()
     result = this.readString(len)
-
-proc readFieldInfo(this : LimitedStream) : FieldInfo =
-    # Read field info from stream
-    result.id = this.readUint64()
-    result.parentId = this.readUint64()
-    result.isClassField = this.readBool()
 
 proc readVariant(this : LimitedStream, valueType : ValueType) : Variant = 
     # Read value from stream
@@ -135,7 +90,7 @@ proc processAddField(packet : LimitedStream, response : LimitedStream) : Future[
     let name = packet.readStringWithLen()
     let parentId = packet.readUint64()
     let parent = storage.getClassById(parentId)
-    let isClassField = packet.readBool() 
+    let isClassField = packet.readBool()
     let nfield = producer.newField(name, parent,isClassField)
     await storage.storeNewField(nfield)
     response.addOk(ADD_NEW_FIELD)
