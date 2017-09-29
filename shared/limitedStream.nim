@@ -71,6 +71,12 @@ proc readString*(this : LimitedStream, len : int) : string =
     # Read string
     result = this.data.readStr(int len)
     this.len -= len
+
+proc readStringWithLen*(this : LimitedStream) : string =
+    # Read string with length
+    let len = int this.readUint8()
+    result = this.data.readStr(len)
+    this.len -= len
         
 proc addUint8*(this : LimitedStream, value : uint8) : void =
     # Write uint8    
@@ -98,7 +104,12 @@ proc addInt32*(this : LimitedStream, value : int32) : void =
     this.len += 4
 
 proc addString*(this : LimitedStream, value : string) : void =
-    # Write string
+    # Write string    
+    this.data.write(value)
+    this.len += value.len
+
+proc addStringWithLen*(this : LimitedStream, value : string) : void =
+    # Write string with length
     this.addUint8(uint8 value.len)
     this.data.write(value)
     this.len += value.len + 1

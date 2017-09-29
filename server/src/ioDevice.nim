@@ -5,6 +5,7 @@ import
     asyncdispatch,
     strutils,
     streams,
+    ../../shared/packager,
     ../../shared/limitedStream
 
 # Protocol name
@@ -30,7 +31,7 @@ proc newClientData*(socket : AsyncSocket) : ClientData =
 
 # Send to client then something goes wrong
 type IoException* = ref object of Exception
-    errorData* : LimitedStream
+    errorData* : ErrorResponse
 
 #############################################################################################
 type RecievePacket* = proc(client : ClientData, packet : LimitedStream) : Future[void]
@@ -74,7 +75,9 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                     # If known exception
                     if processFut.error of IoException:
                         let exception = IoException(processFut.error)
-                        discard send(client, exception.errorData)
+                        let response = newLimitedStream()
+                        packager.packResponse(response, exception.errorData)
+                        discard send(client, response)
                         break
                     # If unknown exception
                     else:
