@@ -3,7 +3,6 @@ import
     streams,
     asyncdispatch,
     asyncfile,
-    variant,
     producer,
     dataLogger,
     database
@@ -104,7 +103,7 @@ proc storeNewField*(field : Field) : Future[void] {.async.} =
     field.class.classFields.add(field)
     workspace.fields[field.id] = field
 
-proc getClassById*(id : BiggestUInt) : Class = 
+proc getClassById*(id : BiggestUInt) : Class =
     # Get class by id
     result = workspace.classes.getOrDefault(id)
 
@@ -124,7 +123,7 @@ proc getFieldValue*(field : Field, instance : Instance) : Value =
     # Return field value of instance
     result = instance.values.getOrDefault(field.id)
 
-proc setFieldValue*(field : Field, value : Variant) : void =
+proc setFieldValue*(field : Field, value : Value) : void =
     # Set field value
     #dataLogger.logNewValue()
     #workspace.values[field.id].value = value

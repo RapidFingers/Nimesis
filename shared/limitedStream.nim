@@ -99,9 +99,14 @@ proc addUint64*(this : LimitedStream, value : uint64) : void =
     this.len += 8
 
 proc addInt32*(this : LimitedStream, value : int32) : void =
-    # Read int32
+    # Add int32
     this.data.write(value)
     this.len += 4
+
+proc addFloat64*(this : LimitedStream, value : float64) : void =
+    # Add float64
+    this.data.write(value)
+    this.len += 8
 
 proc addString*(this : LimitedStream, value : string) : void =
     # Write string    

@@ -7,7 +7,7 @@ license       = "MIT"
 
 # Dependencies
 
-requires "nim >= 0.17.0", "websocket", "variant"
+requires "nim >= 0.17.0", "websocket"
 srcDir = "./src"
 binDir = "../build"
 bin = @["server.exe"]
