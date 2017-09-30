@@ -263,7 +263,7 @@ proc packRequest*(stream : LimitedStream, packet : RequestPacket) : void =
     of ADD_NEW_CLASS: packAddClass(stream, AddClassRequest(packet))
     of ADD_NEW_INSTANCE: packAddInstance(stream, AddInstanceRequest(packet))
     of ADD_NEW_FIELD: packAddField(stream, AddFieldRequest(packet))
-    of GET_FIELD_VALUE: packAddField(stream, GetFieldValueRequest(packet))
+    #of GET_FIELD_VALUE: packAddField(stream, GetFieldValueRequest(packet))
     else:
         raise newException(Exception, "Unknown packet")
 
