@@ -1,6 +1,7 @@
 import
     times,
-    tables    
+    tables,
+    ../../shared/valuePacker
 
 #############################################################################################
 # Products
@@ -17,11 +18,6 @@ type
         id* : BiggestUInt                    # Id of entity
         name* : string                       # Name of entity
         caption* : BiggestUInt               # Reference to caption
-
-    # Value with info
-    Value* = ref object of RootObj
-        valueType* : ValueType               # Value type
-        value* : Variant                     # Variant value
 
     # Base class Field
     Field* = ref object of Entity

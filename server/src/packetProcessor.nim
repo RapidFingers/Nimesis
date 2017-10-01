@@ -3,8 +3,8 @@ import
     strutils,
     tables,
     times,
-    ../../shared/packetPackager,
-    ../../shared/limitedStream,
+    ../../shared/packetPacker,
+    ../../shared/binaryPacker,
     ioDevice,
     producer,
     storage

@@ -6,8 +6,8 @@ import
     tables,    
     variant,
     db_sqlite,
-    dataLogger,
-    producer   # TODO: remove
+    ../../shared/valuePacker,
+    dataLogger
 
 # Database file name
 const DATABASE_FILE_NAME = "database.dat"
@@ -58,7 +58,6 @@ type
 
     DbEntityValue* = ref object of DbValue
         value* : uint64
-
 
 #############################################################################################
 # Workspace of database

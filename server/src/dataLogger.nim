@@ -3,8 +3,7 @@ import
     asyncdispatch,
     asyncfile,    
     streams,
-    variant,
-    producer
+    ../../shared/valuePacker    
 
 const LOG_FILE_NAME = "change.log"
 
@@ -18,62 +17,6 @@ const ADD_CLASS_FIELD_COMMAND = 3
 const ADD_INSTANCE_FIELD_COMMAND = 4
 # Command to set field value
 const SET_VALUE_COMMAND = 5
-
-#############################################################################################
-# Writer
-
-type 
-    Writer = ref object of RootObj
-        file : AsyncFile
-        stream : StringStream
-        len : uint32
-
-proc newWriter(file : AsyncFile) : Writer =
-    result = Writer(
-        file : file,
-        stream : newStringStream(),
-        len : 0,        
-    )
-
-proc data(this : Writer) : string =
-    # Return data
-    this.stream.setPosition(0)
-    result = this.stream.readStr(int(this.len))
-
-proc writeBool(this : Writer, value : bool) : void =
-    # Write bool
-    this.stream.write(bool value)
-    this.len += 1
-
-proc writeUint64(this : Writer, value : uint64) : void =
-    # Write uint64 without type    
-    this.stream.write(uint64 value)
-    this.len += 8
-
-proc writeUint8(this : Writer, value : uint8) : void =
-    # Write uint8
-    this.stream.write(uint8 value)
-    this.len += 1
-
-proc writeInt32(this : Writer, value : int32) : void =
-    # Write int32
-    this.stream.write(int32 value)
-    this.len += 4
-
-proc writeFloat64(this : Writer, value : float64) : void =
-    # Write float64
-    this.stream.write(float64 value)
-    this.len += 8
-
-proc writeString(this : Writer, value : string) : void =
-    # Write string
-    this.stream.write(uint32 value.len)
-    this.stream.write(value)
-    this.len += uint32(value.len + 4)
-
-proc flush(this : Writer) : Future[void] {.async.} =
-    # Write all data to file
-    await this.file.write(this.data())
 
 #############################################################################################
 # Reader

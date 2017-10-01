@@ -1,10 +1,20 @@
-import streams
+import    
+    asyncdispatch,
+    asyncfile,
+    streams
 
 type
     # Stream with length
     LimitedStream* = ref object of RootObj
         data        :   StringStream            # Data stream
         len         :   int             # Length from cursor position to end
+    
+    # Buffered file wirter
+    FileWriter = ref object of LimitedStream
+        file : AsyncFile
+
+#############################################################################################
+# LimitedStream
 
 proc init*(this : LimitedStream) =
     # Init limited string
@@ -118,3 +128,10 @@ proc addStringWithLen*(this : LimitedStream, value : string) : void =
     this.addUint8(uint8 value.len)
     this.data.write(value)
     this.len += value.len + 1
+
+#############################################################################################
+# File stream
+
+proc flush*(this : FileWriter) : Future[void] {.async.} =
+    # Write all data to file
+    await this.file.write(this.data.data)
