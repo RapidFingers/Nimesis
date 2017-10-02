@@ -6,7 +6,7 @@ import
     strutils,
     streams,
     ../../shared/packetPacker,
-    ../../shared/binaryPacker
+    ../../shared/streamProducer
 
 # Protocol name
 const PROTOCOL_NAME = "nimesis"
@@ -76,7 +76,7 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                     if processFut.error of IoException:
                         let exception = IoException(processFut.error)
                         let response = newLimitedStream()
-                        packetPackager.packResponse(response, exception.errorData)
+                        packetPacker.packResponse(response, exception.errorData)
                         discard send(client, response)
                         break
                     # If unknown exception

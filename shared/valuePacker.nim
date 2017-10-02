@@ -110,3 +110,15 @@ proc getRefArray*(this : Value) : seq[uint64] =
 proc getStructureArray*(this : Value) : ArrayStructure =
     # Get structure array
     return (VStructureArray(this)).value
+
+proc box*(v : int32) : Value =
+    # Box int32 value
+    result = VInt(value: v)
+
+proc box*(v : float64) : Value =
+    # Box float64 value
+    result = VFloat(value: v)
+
+proc box*(v : string) : Value =
+    # Box float64 value
+    result = VString(value: v)

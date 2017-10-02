@@ -3,8 +3,7 @@ import
     os,
     asyncdispatch,
     asyncfile,
-    tables,    
-    variant,
+    tables,
     db_sqlite,
     ../../shared/valuePacker,
     dataLogger
@@ -113,13 +112,15 @@ proc writeSetValue*(rec : SetValueRecord) : void =
     if not rec.isClassField:
         instanceId = rec.instanceId
 
-    case rec.value.valueType
-    of INT:
-        workspace.db.exec(sql("INSERT INTO v_int(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(int32))
-    of FLOAT:
-        workspace.db.exec(sql("INSERT INTO v_float(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(float64))
-    of STRING:
-        workspace.db.exec(sql("INSERT INTO v_string(fieldId,instanceId,value) VALUES(?,?,?)"), rec.id, instanceId, rec.value.value.get(string))
+    if rec.value of VInt:
+        workspace.db.exec(sql("INSERT INTO v_int(fieldId,instanceId,value) VALUES(?,?,?)"), 
+            rec.id, instanceId, rec.value.getInt())
+    elif rec.value of VFloat:
+        workspace.db.exec(sql("INSERT INTO v_float(fieldId,instanceId,value) VALUES(?,?,?)"), 
+            rec.id, instanceId, rec.value.getFloat())
+    elif rec.value of VString:
+        workspace.db.exec(sql("INSERT INTO v_string(fieldId,instanceId,value) VALUES(?,?,?)"), 
+            rec.id, instanceId, rec.value.getString())
     else:
         raise newException(Exception, "Unknown type")    
 

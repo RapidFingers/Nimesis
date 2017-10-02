@@ -1,13 +1,12 @@
 import 
     asyncdispatch,
-    variant,
     ioDevice,
     packetProcessor,
-    producer,
+    entityProducer,
     storage
 
 storage.init()
-producer.init()
+entityProducer.init()
 ioDevice.init()
 packetProcessor.init()
 

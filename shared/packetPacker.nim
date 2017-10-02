@@ -1,8 +1,5 @@
 import
-    valuePackager
-
-#############################################################################################
-# Request id
+    valuePacker
 
 type 
     RequestType* = enum    
@@ -26,13 +23,9 @@ type
         CLEAR_CLASS_LIST_FIELD_VALUE,       # Clear class list field value
         CLEAR_INSTANCE_LIST_FIELD_VALUE,    # Clear instance list field value
 
-#############################################################################################
-# Response id
-
-# Ok code
-const OK_CODE_RESPONSE* = 1
-# Error code
-const ERROR_CODE_RESPONSE* = 2
+    ResponseCode* = enum
+        OK_CODE,
+        ERROR_CODE
 
 #############################################################################################
 # Process errors
@@ -47,7 +40,8 @@ const FIELD_NOT_FOUND* = 3
 const VALUE_NOT_FOUND* = 4
 
 import
-    limitedStream
+    streamProducer,
+    valuePacker
 
 type
     # Base packet
@@ -107,12 +101,13 @@ type
 
     # Set value request
     SetValueRequest* = object of RequestPacket
+        fieldId* : uint64
 
 type 
     # Base response
     ResponsePacket* = object of RootObj
-        id* : uint8              # Id of packet
-        code* : uint8            # Response code
+        id* : RequestType                      # Id of packet
+        code* : ResponseCode                   # Response code
 
     # Ok response
     OkResponse* = object of ResponsePacket
@@ -183,27 +178,27 @@ proc unpackAddField(data : LimitedStream) : AddFieldRequest =
 
 proc packBaseResponse(stream : LimitedStream, packet : ResponsePacket) : void =
     # Pack base response
-    stream.addUint8(packet.id)
-    stream.addUint8(packet.code)
+    stream.addUint8(uint8 packet.id)
+    stream.addUint8(uint8 packet.code)
 
 #############################################################################################
 # OkResponse
 
-proc newOkResponse*(packetId : uint8) : OkResponse =
+proc newOkResponse*(packetId : RequestType) : OkResponse =
     # Create new Ok response
     result = OkResponse(
         id : packetId,
-        code : OK_CODE_RESPONSE
+        code : OK_CODE
     )
 
 #############################################################################################
 # ErrorResponse
 
-proc newErrorResponse*(packetId : uint8, errorCode : uint8) : ErrorResponse =
+proc newErrorResponse*(packetId : RequestType, errorCode : uint8) : ErrorResponse =
     # Create new Ok response
     result = ErrorResponse(
         id : packetId,
-        code : ERROR_CODE_RESPONSE,
+        code : ERROR_CODE,
         errorCode : errorCode
     )
 
@@ -215,11 +210,11 @@ proc packErrorResponse(stream : LimitedStream, packet : ErrorResponse) : void =
 #############################################################################################
 # GetFieldValueResponse
 
-proc newGetFieldValueResponse*(packetId : uint8, value : Value) : GetFieldValueResponse =
+proc newGetFieldValueResponse*(packetId : RequestType, value : Value) : GetFieldValueResponse =
     # Create new GetFieldValueResponse
     result = GetFieldValueResponse(
         id : packetId,
-        code : OK_CODE_RESPONSE,
+        code : OK_CODE,
         value : value
     )
 

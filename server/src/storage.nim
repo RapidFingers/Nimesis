@@ -3,7 +3,8 @@ import
     streams,
     asyncdispatch,
     asyncfile,
-    producer,
+    ../../shared/valuePacker,
+    entityProducer,
     dataLogger,
     database
 
@@ -41,7 +42,7 @@ proc getClass(classTable : TableRef[BiggestUInt, DbClass], id : BiggestUInt) : C
     # Get class from class table with all parents
     let cls = classTable.getOrDefault(id)
     if cls.isNil: return nil
-    result = producer.newClass(id, cls.name, getClass(classTable, cls.parentId))
+    result = entityProducer.newClass(id, cls.name, getClass(classTable, cls.parentId))
 
 proc loadFromDatabase() : void =
     # Load all from database to memory
@@ -58,10 +59,10 @@ proc loadFromDatabase() : void =
         let class = getClassById(f.classId)
         if class.isNil: continue
         if bool(f.isClassField):
-            let field = producer.newField(f.id, f.name, class, true)
+            let field = entityProducer.newField(f.id, f.name, class, true)
             class.classFields.add(field)
         else:
-            let field = producer.newField(f.id, f.name, class, false)
+            let field = entityProducer.newField(f.id, f.name, class, false)
             class.instanceFields.add(field)
 
     # Load values to memory, except blobs

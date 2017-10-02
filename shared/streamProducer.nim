@@ -10,7 +10,11 @@ type
         len         :   int             # Length from cursor position to end
     
     # Buffered file wirter
-    FileWriter = ref object of LimitedStream
+    FileWriter* = ref object of LimitedStream
+        file : AsyncFile
+
+    # File reader
+    FileReader* = ref object of RootObj
         file : AsyncFile
 
 #############################################################################################
@@ -51,6 +55,7 @@ proc len*(this : LimitedStream) : int =
 proc readBool*(this : LimitedStream) : bool =
     # Read boolean
     result = bool(this.data.readInt8())
+    this.len -= 1
 
 proc readUint8*(this : LimitedStream) : uint8 =
     # Read uint8
@@ -87,9 +92,14 @@ proc readStringWithLen*(this : LimitedStream) : string =
     let len = int this.readUint8()
     result = this.data.readStr(len)
     this.len -= len
-        
+
+proc addBool*(this : LimitedStream, value : bool) : void =
+    # Write bool    
+    this.data.write(value)
+    this.len += 1
+
 proc addUint8*(this : LimitedStream, value : uint8) : void =
-    # Write uint8    
+    # Write uint8
     this.data.write(value)
     this.len += 1
 
@@ -132,6 +142,65 @@ proc addStringWithLen*(this : LimitedStream, value : string) : void =
 #############################################################################################
 # File stream
 
+proc newFileWriter*(file : AsyncFile) : FileWriter =
+    # Create new file writer
+    result = FileWriter(
+        file : file
+    )
+
 proc flush*(this : FileWriter) : Future[void] {.async.} =
     # Write all data to file
-    await this.file.write(this.data.data)
+    await this.file.write(this.data.data)    
+
+#############################################################################################
+# Reader
+
+proc newFileReader*(file : AsyncFile) : FileReader =
+    # Create new reader
+    result = FileReader()
+    result.file = file
+
+proc readBool*(this : FileReader) : Future[bool] {.async.} =
+    # Read bool
+    let str = await this.file.read(1)
+    result = bool str[0]
+
+proc readString*(this : FileReader, len : uint32) : Future[string] {.async.} =
+    # Read string
+    result = await this.file.read(int len)
+
+proc readStringWithLen*(this : FileReader) : Future[string] {.async.} =
+    # Read string
+    let str = await this.file.read(1)
+    let len = uint32(str[0])
+    result = await this.readString(len)
+
+proc readUint8*(this : FileReader) : Future[uint8] {.async.} = 
+    let str = await this.file.read(1)
+    result = uint8 str[0]
+
+proc readUint32*(this : FileReader) : Future[uint32] {.async.} = 
+    # Read string
+    let str = await this.file.read(4)
+    result = ((uint8 str[0]) shl 24) + ((uint8 str[1]) shl 16) + ((uint8 str[2]) shl 8) + (uint8 str[0])
+
+proc readInt32*(this : FileReader) : Future[int32] {.async.} = 
+    # Read int32
+    result = int32(await this.readUint32())
+
+proc readUint64*(this : FileReader) : Future[uint64] {.async.} = 
+    # Read uint64
+    let str = await this.file.read(8)
+    result = (uint64(uint8 str[7]) shl 56) + 
+             (uint64(uint8 str[6]) shl 48) + 
+             (uint64(uint8 str[5]) shl 40) + 
+             (uint64(uint8 str[4]) shl 32) + 
+             (uint64(uint8 str[3]) shl 24) + 
+             (uint64(uint8 str[2]) shl 16) + 
+             (uint64(uint8 str[1]) shl 8) + 
+             uint64(uint8 str[0])
+
+proc readFloat64*(this : FileReader) : Future[float64] {.async.} =
+    # Read float64
+    let str = await this.file.read(8)
+    result = cast[float64](str)

@@ -3,6 +3,7 @@ import
     asyncdispatch,
     asyncfile,    
     streams,
+    ../../shared/streamProducer,
     ../../shared/valuePacker    
 
 const LOG_FILE_NAME = "change.log"
@@ -17,62 +18,6 @@ const ADD_CLASS_FIELD_COMMAND = 3
 const ADD_INSTANCE_FIELD_COMMAND = 4
 # Command to set field value
 const SET_VALUE_COMMAND = 5
-
-#############################################################################################
-# Reader
-type
-    Reader = ref object of RootObj
-        file : AsyncFile
-
-proc newReader(file : AsyncFile) : Reader =
-    # Create new reader
-    result = Reader()
-    result.file = file
-
-proc readBool(this : Reader) : Future[bool] {.async.} =
-    # Read bool
-    let str = await this.file.read(1)
-    result = bool str[0]
-
-proc readString(this : Reader, len : uint32) : Future[string] {.async.} =
-    # Read string
-    result = await this.file.read(int len)
-
-proc readStringWithLen(this : Reader) : Future[string] {.async.} =
-    # Read string
-    let str = await this.file.read(1)
-    let len = uint32(str[0])
-    result = await this.readString(len)
-
-proc readUint8(this : Reader) : Future[uint8] {.async.} = 
-    let str = await this.file.read(1)
-    result = uint8 str[0]
-
-proc readUint32(this : Reader) : Future[uint32] {.async.} = 
-    # Read string
-    let str = await this.file.read(4)
-    result = ((uint8 str[0]) shl 24) + ((uint8 str[1]) shl 16) + ((uint8 str[2]) shl 8) + (uint8 str[0])
-
-proc readInt32(this : Reader) : Future[int32] {.async.} = 
-    # Read int32
-    result = int32(await this.readUint32())
-
-proc readUint64(this : Reader) : Future[uint64] {.async.} = 
-    # Read string
-    let str = await this.file.read(8)
-    result = (uint64(uint8 str[7]) shl 56) + 
-             (uint64(uint8 str[6]) shl 48) + 
-             (uint64(uint8 str[5]) shl 40) + 
-             (uint64(uint8 str[4]) shl 32) + 
-             (uint64(uint8 str[3]) shl 24) + 
-             (uint64(uint8 str[2]) shl 16) + 
-             (uint64(uint8 str[1]) shl 8) + 
-             uint64(uint8 str[0])
-
-proc readFloat64(this : Reader) : Future[float64] {.async.} =
-    # Read float64
-    let str = await this.file.read(8)
-    result = cast[float64](str)
 
 #############################################################################################
 # Log records
@@ -122,27 +67,27 @@ proc newWorkspace() : Workspace =
 #############################################################################################
 # Private
 
-proc getWriter() : Writer =
+proc getWriter() : FileWriter =
     # Get writer to file
     if workspace.file.isNil:
-        result.file = openAsync(LOG_FILE_NAME, fmAppend)
-    result = newWriter(workspace.file)
+        workspace.file = openAsync(LOG_FILE_NAME, fmAppend)
+    result = newFileWriter(workspace.file)
 
-proc processAddClass(data : Reader) : Future[AddClassRecord] {.async.} =
+proc processAddClass(data : FileReader) : Future[AddClassRecord] {.async.} =
     # Process add class record
     result = AddClassRecord()
     result.id = await data.readUint64()
     result.parentId = await data.readUint64()
     result.name = await data.readStringWithLen()
 
-proc processAddInstance(data : Reader) : Future[AddInstanceRecord] {.async.} =
+proc processAddInstance(data : FileReader) : Future[AddInstanceRecord] {.async.} =
     # Process add instance record
     result = AddInstanceRecord()
     result.id = await data.readUint64()
     result.classId = await data.readUint64()
     result.name = await data.readStringWithLen()
 
-proc processAddField(data : Reader, isClassField : bool = true) : Future[AddFieldRecord] {.async.} =
+proc processAddField(data : FileReader, isClassField : bool = true) : Future[AddFieldRecord] {.async.} =
     # Process add field record
     result = AddFieldRecord()
     result.id = await data.readUint64()
@@ -151,7 +96,7 @@ proc processAddField(data : Reader, isClassField : bool = true) : Future[AddFiel
     result.name = await data.readStringWithLen()
     result.valueType = ValueType(await data.readUint8())
 
-proc processSetValue(data : Reader, isClassField : bool = true) : Future[SetValueRecord] {.async.} =
+proc processSetValue(data : FileReader, isClassField : bool = true) : Future[SetValueRecord] {.async.} =
     # Process set value record
     result = SetValueRecord()
     result.id = await data.readUint64()
@@ -159,25 +104,22 @@ proc processSetValue(data : Reader, isClassField : bool = true) : Future[SetValu
     if not result.isClassField:
         result.instanceId = await data.readUint64()
     
-    var value = Value(
-        valueType : ValueType(await data.readUint8())
-    )
-    var variant : Variant
-    
-    case value.valueType
-    of INT:
-        variant = newVariant(await data.readInt32())
-    of FLOAT:
-        variant = newVariant(await data.readFloat64())
-    of STRING:
-        variant = newVariant(await data.readStringWithLen())
-    else:
-        raise newException(Exception, "Unknown type")
+    var value : Value
 
-    value.value = variant
+    let valueType = ValueType(await data.readUint8())
+    case valueType
+    of INT:
+        value = box(await data.readInt32())
+    of FLOAT:
+        value = box(await data.readFloat64())
+    of STRING:
+        value = box(await data.readStringWithLen())
+    else:
+        raise newException(Exception, "Unknown type") 
+        
     result.value = value
     
-proc processRecord(reader : Reader) : Future[LogRecord] {.async.} = 
+proc processRecord(reader : FileReader) : Future[LogRecord] {.async.} = 
     # Process record
     let recType = await reader.readUint8()
     case recType
@@ -194,51 +136,48 @@ proc processRecord(reader : Reader) : Future[LogRecord] {.async.} =
 proc logNewClass*(record : AddClassRecord) : Future[void] {.async.} =
     # Log new class    
     var writer = getWriter()
-    writer.writeUint8(ADD_CLASS_COMMAND)
-    writer.writeUint64(record.id)    
-    writer.writeUint64(record.parentId)    
-    writer.writeString(record.name)
+    writer.addUint8(ADD_CLASS_COMMAND)
+    writer.addUint64(record.id)    
+    writer.addUint64(record.parentId)    
+    writer.addString(record.name)
     await writer.flush()
 
 proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
     # Log new field
     var writer = getWriter()
     if record.isClassField:
-        writer.writeUint8(ADD_CLASS_FIELD_COMMAND)
+        writer.addUint8(ADD_CLASS_FIELD_COMMAND)
     else:
-        writer.writeUint8(ADD_INSTANCE_FIELD_COMMAND)
-    writer.writeUint64(record.id)
-    writer.writeUint64(record.classId)
-    writer.writeString(record.name)
+        writer.addUint8(ADD_INSTANCE_FIELD_COMMAND)
+    writer.addUint64(record.id)
+    writer.addUint64(record.classId)
+    writer.addString(record.name)
     await writer.flush()
 
 proc logNewInstance*(record : AddInstanceRecord) : Future[void] {.async.} =
     # Log new instance        
     var writer = getWriter()
-    writer.writeUint8(ADD_INSTANCE_COMMAND)
-    writer.writeUint64(record.id)
-    writer.writeUint64(record.classId)    
-    writer.writeString(record.name)
+    writer.addUint8(ADD_INSTANCE_COMMAND)
+    writer.addUint64(record.id)
+    writer.addUint64(record.classId)
+    writer.addString(record.name)
     await writer.flush()
 
 proc logSetValue*(record : SetValueRecord) : Future[void] {.async.} =
     # Log set value
     var writer = getWriter()
-    writer.writeUint8(SET_VALUE_COMMAND)
-    writer.writeUint64(record.id)
-    writer.writeBool(record.isClassField)
+    writer.addUint8(SET_VALUE_COMMAND)
+    writer.addUint64(record.id)
+    writer.addBool(record.isClassField)
     if not record.isClassField:
-        writer.writeUint64(record.instanceId)
+        writer.addUint64(record.instanceId)
 
-    case record.value.valueType
-    of INT:
-        writer.writeInt32(record.value.value.get(int32))
-    of FLOAT:
-        writer.writeFloat64(record.value.value.get(float64))
-    of STRING:
-        let val = record.value.value.get(string)
-        writer.writeUint8(uint8 val.len)
-        writer.writeString(val)
+    if record.value of VInt:
+        writer.addInt32(record.value.getInt())
+    elif record.value of VFloat:
+        writer.addFloat64(record.value.getFloat())
+    elif record.value of VString:
+        writer.addStringWithLen(record.value.getString())    
     else:
         raise newException(Exception, "Unknown type")
 
@@ -248,7 +187,7 @@ iterator allRecords*() : LogRecord =
     # Iterate log file
     if os.existsFile(LOG_FILE_NAME):
         var file = openAsync(LOG_FILE_NAME, fmRead)
-        let reader = newReader(file)
+        let reader = newFileReader(file)
 
         try:
             while true:
