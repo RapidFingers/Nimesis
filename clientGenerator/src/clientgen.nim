@@ -1,12 +1,8 @@
-import 
-    websocket, 
-    asyncnet, 
+import    
     asyncdispatch,
-    ../../shared/limitedStream
+    ioProducer,
+    ../../shared/coreTypes,
+    ../../shared/streamProducer
 
-
-let ws = waitFor newAsyncWebsocket("localhost", Port 9001, "", ssl = false, protocols = @["nimesis"])
-let ds = newLimitedStream()
-ds.addUint8(1)
-ds.setDataPos(0)
-waitFor ws.sock.sendBinary(ds.readString(ds.len), true)
+let io = newIoDevice()
+waitFor io.connect()

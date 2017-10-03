@@ -3,9 +3,9 @@ import
 
 type 
     RequestType* = enum    
-        ADD_NEW_CLASS,                      # Add new class    
-        ADD_NEW_FIELD,                      # Add new class field        
+        ADD_NEW_CLASS,                      # Add new class
         ADD_NEW_INSTANCE,                   # Add new instance
+        ADD_NEW_FIELD,                      # Add new class field
         GET_CLASS_FIELD_VALUE,              # Get class field value
         GET_INSTANCE_FIELD_VALUE,           # Get instance field value
         GET_CLASS_LIST_FIELD_COUNT          # Get class list field count
@@ -22,6 +22,11 @@ type
         REMOVE_INSTANCE_LIST_FIELD_VALUE,   # Remove instance list field value
         CLEAR_CLASS_LIST_FIELD_VALUE,       # Clear class list field value
         CLEAR_INSTANCE_LIST_FIELD_VALUE,    # Clear instance list field value
+
+    ResponseType* = enum
+        ADD_NEW_CLASS_RESPONSE,
+        ADD_NEW_INSTANCE_RESPONSE,
+        ADD_NEW_FIELD_RESPONSE
 
     ResponseCode* = enum
         OK_CODE,
@@ -106,15 +111,15 @@ type
 type 
     # Base response
     ResponsePacket* = object of RootObj
-        id* : RequestType                      # Id of packet
-        code* : ResponseCode                   # Response code
-
-    # Ok response
-    OkResponse* = object of ResponsePacket
+        id* : ResponseType                      # Id of packet
+        code* : ResponseCode                    # Response code
 
     # Error response
     ErrorResponse* = object of ResponsePacket
         errorCode* : uint8      # Error code
+
+    # Add new class response
+    OkResponse* = object of ResponsePacket
 
     GetFieldValueResponse* = object of OkResponse
         value* : Value
@@ -184,7 +189,7 @@ proc packBaseResponse(stream : LimitedStream, packet : ResponsePacket) : void =
 #############################################################################################
 # OkResponse
 
-proc newOkResponse*(packetId : RequestType) : OkResponse =
+proc newOkResponse*(packetId : ResponseType) : OkResponse =
     # Create new Ok response
     result = OkResponse(
         id : packetId,
@@ -194,7 +199,7 @@ proc newOkResponse*(packetId : RequestType) : OkResponse =
 #############################################################################################
 # ErrorResponse
 
-proc newErrorResponse*(packetId : RequestType, errorCode : uint8) : ErrorResponse =
+proc newErrorResponse*(packetId : ResponseType, errorCode : uint8) : ErrorResponse =
     # Create new Ok response
     result = ErrorResponse(
         id : packetId,
@@ -210,7 +215,7 @@ proc packErrorResponse(stream : LimitedStream, packet : ErrorResponse) : void =
 #############################################################################################
 # GetFieldValueResponse
 
-proc newGetFieldValueResponse*(packetId : RequestType, value : Value) : GetFieldValueResponse =
+proc newGetFieldValueResponse*(packetId : ResponseType, value : Value) : GetFieldValueResponse =
     # Create new GetFieldValueResponse
     result = GetFieldValueResponse(
         id : packetId,
@@ -262,6 +267,10 @@ proc packRequest*(stream : LimitedStream, packet : RequestPacket) : void =
     else:
         raise newException(Exception, "Unknown packet")
 
+proc packRequest*(packet : RequestPacket) : LimitedStream =
+    result = newLimitedStream()
+    packRequest(result, packet)
+
 proc unpackRequest*(data : LimitedStream) : RequestPacket =
     # Unpack request
     let id = RequestType(data.readUint8())
@@ -280,3 +289,27 @@ proc packResponse*(stream : LimitedStream, packet : ResponsePacket) : void =
     else:
         raise newException(Exception, "Unknown packet")
     
+proc unpackResponse*(data : LimitedStream) : ResponsePacket =
+    # Unpack response
+    let id = ResponseType(data.readUint8())
+    let code = ResponseCode(data.readUint8())
+    case code
+    of OK_CODE:
+        result = OkResponse(
+            id : id, 
+            code : code
+        )
+    of ERROR_CODE:
+        result = ErrorResponse(
+            id : id,
+            code : code,
+            errorCode : data.readUint8()
+        )
+    else:
+        raise newException(Exception, "Unknown responce code")
+
+proc unpackResponse*(data : string) : ResponsePacket =
+    # Unpack response
+    var stream = newLimitedStream()
+    stream.setData(data)
+    result = unpackResponse(stream)

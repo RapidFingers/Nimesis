@@ -52,6 +52,9 @@ proc toStart*(this : LimitedStream) : void =
 proc len*(this : LimitedStream) : int = 
     return this.len
 
+proc data*(this : LimitedStream) : string = 
+    return this.data.data
+
 proc readBool*(this : LimitedStream) : bool =
     # Read boolean
     result = bool(this.data.readInt8())
