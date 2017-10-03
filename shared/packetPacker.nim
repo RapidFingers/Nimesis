@@ -26,7 +26,7 @@ type
     ResponseType* = enum
         ADD_NEW_CLASS_RESPONSE,
         ADD_NEW_INSTANCE_RESPONSE,
-        ADD_NEW_FIELD_RESPONSE
+        ADD_NEW_FIELD_RESPONSE,
 
     ResponseCode* = enum
         OK_CODE,
