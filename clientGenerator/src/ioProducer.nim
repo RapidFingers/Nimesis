@@ -15,6 +15,19 @@ proc newIoDevice*() : IODevice =
     # Create new io device
     result = IODevice()
 
+proc readData(this : IODevice) : Future[string] {.async.} =
+    # Read data from socket
+    let f = await this.sock.readData(true)
+    if f.opcode != Opcode.Binary:
+        raise newException(Exception, "Only binary frame allowed")
+    result = f.data
+
+proc checkError(response : ResponsePacket) : void =
+    # Check response on error
+    if (response.code == ERROR_CODE) and (response of ErrorResponse): 
+        let error = ErrorResponse(response)
+        raise newException(Exception, $(error.errorCode))
+
 proc connect*(this : IODevice) : Future[void] {.async.} =
     # Connect to server
     this.ws = await newAsyncWebsocket(
@@ -29,10 +42,9 @@ proc connect*(this : IODevice) : Future[void] {.async.} =
 proc sendRequest(this : IODevice, stream : LimitedStream) : Future[ResponsePacket] {.async.} =
     # Send request
     await this.sock.sendBinary(stream.data, false)
-    let f = await this.sock.readData(true)
-    if f.opcode != Opcode.Binary:
-        raise newException(Exception, "Only binary frame allowed")
-    result = packetPacker.unpackResponse(f.data)
+    let data = await this.readData()
+    result = packetPacker.unpackResponse(data)
+    checkError(result)
 
 proc addClass*(this : IODevice, req : AddClassRequest) : Future[ResponsePacket] {.async.} =
     # Add new class    
@@ -51,3 +63,21 @@ proc addField*(this : IODevice, req : AddFieldRequest) : Future[ResponsePacket] 
     let stream = newLimitedStream()
     packetPacker.packRequest(stream, req)
     result = await this.sendRequest(stream)
+
+iterator allClasses*(this : IODevice) : GetAllClassResponse =
+    # Iterate all classes
+    let stream = newLimitedStream()
+    packetPacker.packRequest(stream, newGetAllClass())    
+    waitFor this.sock.sendBinary(stream.data, false)        
+    let data = waitFor this.readData()
+    var rsp = packetPacker.unpackResponse(data)
+    checkError(rsp)    
+    var resp = GetAllClassResponse(rsp)
+    yield resp
+    echo repr resp
+    while not resp.isEnd:
+        let data = waitFor this.readData()
+        rsp = packetPacker.unpackResponse(data)
+        checkError(rsp)
+        resp = GetAllClassResponse(rsp)
+        yield resp

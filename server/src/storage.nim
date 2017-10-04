@@ -72,6 +72,13 @@ proc loadFromDatabase() : void =
 #############################################################################################
 # Public interface
 
+iterator allClasses*() : Class =
+    # Iterate all classes
+    for k, v in workspace.classes:
+        echo v.name
+        yield v
+    yield nil
+
 proc storeNewClass*(class : Class) : Future[void] {.async.} =
     # Store new class data
     var parentId = 0'u64

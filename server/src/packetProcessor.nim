@@ -27,27 +27,50 @@ proc newWorkspace() : Workspace =
     # Create new workspace
     result = Workspace()
 
-proc processAddClass(packet : AddClassRequest, response : LimitedStream) : Future[void] {.async.} = 
-    # Process add new class packet
+proc processAddClass(client : ClientData, packet : AddClassRequest) : Future[void] {.async.} = 
+    # Process add new class packet        
     let parent = storage.getClassById(packet.parentId)
     let nclass = entityProducer.newClass(packet.name, parent)
     await storage.storeNewClass(nclass)
+    var response = newLimitedStream()
     response.packResponse(newOkResponse(ADD_NEW_CLASS_RESPONSE))
+    await ioDevice.send(client, response)
 
-proc processAddInstance(packet : AddInstanceRequest, response : LimitedStream) : Future[void] {.async.} = 
+proc processAddInstance(client : ClientData, packet : AddInstanceRequest) : Future[void] {.async.} = 
     # Process add new instance
     let class = storage.getClassById(packet.classId)
     if class.isNil: throwError(ADD_NEW_INSTANCE_RESPONSE, CLASS_NOT_FOUND)
     let ninstance = entityProducer.newInstance(packet.name, class)
     await storage.storeNewInstance(ninstance)
+    var response = newLimitedStream()
     response.packResponse(newOkResponse(ADD_NEW_INSTANCE_RESPONSE))
+    await ioDevice.send(client, response)
 
-proc processAddField(packet : AddFieldRequest, response : LimitedStream) : Future[void] {.async.} =
+proc processAddField(client : ClientData, packet : AddFieldRequest) : Future[void] {.async.} =
     # Process add class field    
     let class = storage.getClassById(packet.classId)    
     let nfield = entityProducer.newField(packet.name, class,packet.isClassField)
     await storage.storeNewField(nfield)
+    var response = newLimitedStream()
     response.packResponse(newOkResponse(ADD_NEW_FIELD_RESPONSE))
+    await ioDevice.send(client, response)
+
+proc processGetAllClasses(client : ClientData, packet : GetAllClassRequest) : Future[void] {.async.} =
+    # Process get all classes
+    var response = newLimitedStream()
+    for c in storage.allClasses():        
+        if c != nil:
+            response.packResponse(newGetAllClassesResponse(
+                isEnd = false,
+                classId = c.id,
+                name = c.name
+            ))
+        else:
+            response.packResponse(newGetAllClassesResponse(
+                isEnd = true,                
+            ))
+        await ioDevice.send(client, response)
+        response.clear()
 
 # proc processGetFieldValue(packet : GetFieldValueRequest, response : LimitedStream) : Future[void] {.async.} = 
 #     # Process get field value
@@ -80,20 +103,21 @@ proc processAddField(packet : AddFieldRequest, response : LimitedStream) : Futur
 #############################################################################################
 # Private
 
-proc processPacket(client : ClientData, packet : LimitedStream) {.async.} =
+proc processPacket(client : ClientData, packet : LimitedStream) : Future[void] {.async.} =    
     # Process packet from client
-    let requestPacket = packetPacker.unpackRequest(packet)
-    var response : LimitedStream = newLimitedStream()
+    echo "processPacket"
+    echo packet.len
+    let requestPacket = packetPacker.unpackRequest(packet)    
+    echo requestPacket.id
 
     case requestPacket.id
-    of ADD_NEW_CLASS: await processAddClass(AddClassRequest(requestPacket), response)
-    of ADD_NEW_INSTANCE: await processAddInstance(AddInstanceRequest(requestPacket), response)
-    of ADD_NEW_FIELD: await processAddField(AddFieldRequest(requestPacket), response)
+    of ADD_NEW_CLASS: await processAddClass(client, AddClassRequest(requestPacket))
+    of ADD_NEW_INSTANCE: await processAddInstance(client, AddInstanceRequest(requestPacket))
+    of ADD_NEW_FIELD: await processAddField(client, AddFieldRequest(requestPacket))
+    of GET_ALL_CLASSES: await processGetAllClasses(client, GetAllClassRequest(requestPacket))
     #of GET_FIELD_VALUE: await processGetFieldValue(packet, response)
     else:
         raise newException(Exception, "Unknown command")
-        
-    await ioDevice.send(client, response)
     
 
 #############################################################################################

@@ -28,6 +28,8 @@ type
         ADD_NEW_CLASS_RESPONSE,
         ADD_NEW_INSTANCE_RESPONSE,
         ADD_NEW_FIELD_RESPONSE,
+        GET_ALL_CLASSES_RESPONSE,
+        GET_ALL_INSTANCES_RESPONSE
 
     ResponseCode* = enum
         OK_CODE,
@@ -70,21 +72,12 @@ type
         classId* : uint64
         isClassField* : bool
         valueType* : uint8
-
-    GetAllEntityRequest* = ref object of RequestPacket 
-        isEnd* : bool                   # End of data
-        classId* : uint64               # Class id
-        name* : string                  # Class name
-
+    
     # Iterate all classes
-    GetAllClassRequest* = ref object of GetAllEntityRequest
-        # classFields* : 
-        # instanceFields* :
-        # classMethods* :
-        # instanceMethods* :
+    GetAllClassRequest* = ref object of RequestPacket
 
     # Iterate all instances
-    GetAllInstanceRequest* = ref object of GetAllEntityRequest        
+    GetAllInstanceRequest* = ref object of RequestPacket        
 
     # Get field value request
     GetFieldValueRequest* = ref object of RequestPacket
@@ -109,9 +102,20 @@ type
     # Add new class response
     OkResponse* = ref object of ResponsePacket
 
-    # Iterate all classes response
-    GetAllClassResponse* = ref object of OkResponse
+    GetAllEntityResponse* = ref object of OkResponse
+        isEnd* : bool                   # End of data
+        classId* : uint64               # Class id
+        name* : string                  # Class name
 
+    # Iterate all classes response
+    GetAllClassResponse* = ref object of GetAllEntityResponse
+        # classFields* : 
+        # instanceFields* :
+        # classMethods* :
+        # instanceMethods* :
+
+    # Iterate all instance response
+    GetAllInstanceResponse* = ref object of GetAllEntityResponse
 
     GetFieldValueResponse* = ref object of OkResponse
         value* : Value
@@ -161,6 +165,32 @@ proc unpackAddField(data : LimitedStream) : AddFieldRequest =
     )
 
 #############################################################################################
+# GetAllClassRequest
+
+proc newGetAllClass*() : GetAllClassRequest =
+    # Create get all classes
+    result = GetAllClassRequest(
+        id : GET_ALL_CLASSES
+    )
+
+proc unpackGetAllClass(data : LimitedStream) : GetAllClassRequest =
+    # Unpack GetAllClassRequest
+    result = newGetAllClass()
+
+#############################################################################################
+# GetAllInstanceRequest
+
+proc newGetAllInstance*() : GetAllInstanceRequest =
+    # Create get all instances
+    result = GetAllInstanceRequest(
+        id : GET_ALL_INSTANCES        
+    )
+
+proc unpackGetAllInstance(data : LimitedStream) : GetAllInstanceRequest =
+    # Unpack GetAllInstanceRequest
+    result = GetAllInstanceRequest()
+
+#############################################################################################
 # ResponsePacket
 
 proc packBaseResponse(stream : LimitedStream, packet : ResponsePacket) : void =
@@ -190,99 +220,156 @@ proc newErrorResponse*(packetId : ResponseType, errorCode : uint8) : ErrorRespon
     )
 
 #############################################################################################
-# GetFieldValueResponse
+# GetAllClassResponse
 
-proc newGetFieldValueResponse*(packetId : ResponseType, value : Value) : GetFieldValueResponse =
-    # Create new GetFieldValueResponse
-    result = GetFieldValueResponse(
-        id : packetId,
-        code : OK_CODE,
-        value : value
+proc newGetAllClassesResponse*(isEnd : bool, classId : uint64 = 0, name : string = "") : GetAllClassResponse =
+    # Create new get all class response
+    result = GetAllClassResponse(
+        id : GET_ALL_CLASSES_RESPONSE,
+        isEnd : isEnd,
+        classId : classId,
+        name : name
     )
 
-proc packGetFieldValueResponse(stream : LimitedStream, packet : GetFieldValueResponse) : void =
-    # Pack GetFieldValueResponse
-    if packet.value of VInt:
-        let v = packet.value.getInt()
-        stream.addInt32(v)
-    elif packet.value of VFloat:
-        let v = packet.value.getFloat()
-        stream.addFloat64(v)
-    elif packet.value of VString:
-        let v = packet.value.getString()
-        stream.addStringWithLen(v)
-    elif packet.value of VRef:
-        let v = packet.value.getRef()
-        stream.addUint64(v)
-    elif packet.value of VIntArray:
-        let v = packet.value.getIntArray()
-        for it in v:
-            stream.addInt32(it)
-    elif packet.value of VFloatArray:
-        let v = packet.value.getFloatArray()
-        for it in v:
-            stream.addFloat64(it)
-    elif packet.value of VStringArray:
-        let v = packet.value.getStringArray()
-        for it in v:
-            stream.addStringWithLen(it)
-    elif packet.value of VRefArray:
-        let v = packet.value.getRefArray()
-        for it in v:
-            stream.addUint64(it)
+proc unpackGetAllClassesResponse(data : LimitedStream) : GetAllClassResponse =
+    # Get all classes response
+    let isEnd = data.readBool()
+    if not isEnd:
+        result = newGetAllClassesResponse(
+            isEnd = isEnd,
+            classId = data.readUint64(),
+            name = data.readStringWithLen(),
+        )
+    else:
+        result = newGetAllClassesResponse(
+            isEnd = isEnd,
+            classId = 0,
+            name = "",
+        )
+
+#############################################################################################
+# GetFieldValueResponse
+
+# proc newGetFieldValueResponse*(packetId : ResponseType, value : Value) : GetFieldValueResponse =
+#     # Create new GetFieldValueResponse
+#     result = GetFieldValueResponse(
+#         id : packetId,
+#         code : OK_CODE,
+#         value : value
+#     )
+
+# proc packGetFieldValueResponse(stream : LimitedStream, packet : GetFieldValueResponse) : void =
+#     # Pack GetFieldValueResponse
+#     if packet.value of VInt:
+#         let v = packet.value.getInt()
+#         stream.addInt32(v)
+#     elif packet.value of VFloat:
+#         let v = packet.value.getFloat()
+#         stream.addFloat64(v)
+#     elif packet.value of VString:
+#         let v = packet.value.getString()
+#         stream.addStringWithLen(v)
+#     elif packet.value of VRef:
+#         let v = packet.value.getRef()
+#         stream.addUint64(v)
+#     elif packet.value of VIntArray:
+#         let v = packet.value.getIntArray()
+#         for it in v:
+#             stream.addInt32(it)
+#     elif packet.value of VFloatArray:
+#         let v = packet.value.getFloatArray()
+#         for it in v:
+#             stream.addFloat64(it)
+#     elif packet.value of VStringArray:
+#         let v = packet.value.getStringArray()
+#         for it in v:
+#             stream.addStringWithLen(it)
+#     elif packet.value of VRefArray:
+#         let v = packet.value.getRefArray()
+#         for it in v:
+#             stream.addUint64(it)
 
 #############################################################################################
 # Packager api
 
-proc packRequest*(stream : LimitedStream, packet : AddClassRequest) : void = 
-    # Pack request
+proc packBaseRequest(stream : LimitedStream, packet : RequestPacket) : void =
+    # Pack base request
     stream.addUint8(uint8 packet.id)
+
+proc packRequest*(stream : LimitedStream, packet : AddClassRequest) : void =
+    # Pack AddClassRequest
+    packBaseRequest(stream, packet)
     stream.addStringWithLen(packet.name)
     stream.addUint64(packet.parentId)
 
 proc packRequest*(stream : LimitedStream, packet : AddInstanceRequest) : void =
-    # Pack AddInstanceRequest    
-    stream.addUint8(uint8 packet.id)
+    # Pack AddInstanceRequest
+    packBaseRequest(stream, packet)
     stream.addStringWithLen(packet.name)
     stream.addUint64(packet.classId)
+
+proc packRequest*(stream : LimitedStream, packet : GetAllClassRequest) : void =
+    # Pack GetAllClassRequest
+    packBaseRequest(stream, packet)
+
+proc packRequest*(stream : LimitedStream, packet : GetAllInstanceRequest) : void =
+    # Pack GetAllInstanceRequest
+    packBaseRequest(stream, packet)
+
+proc packRequest*(stream : LimitedStream, packet : AddFieldRequest) : void =
+    # Pack AddFieldRequest
+    packBaseRequest(stream, packet)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.classId)
+    stream.addUint8(uint8 packet.isClassField)
+    stream.addUint8(packet.valueType)
 
 proc packResponse*(stream : LimitedStream, packet : ErrorResponse) : void =
     # Pack error response
     packBaseResponse(stream, packet)
     stream.addUint8(packet.errorCode)
 
-proc packRequest*(stream : LimitedStream, packet : AddFieldRequest) : void =
-    # Pack AddFieldRequest
-    stream.addUint8(uint8 packet.id)
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.classId)
-    stream.addUint8(uint8 packet.isClassField)
-    stream.addUint8(packet.valueType)
-
 proc packResponse*(stream : LimitedStream, packet : OkResponse) : void =
     # Pack ok response
     packBaseResponse(stream, packet)
 
+proc packResponse*(stream : LimitedStream, packet : GetAllClassResponse) : void =
+    # Pack ok response
+    packBaseResponse(stream, packet)
+    if not packet.isEnd:
+        stream.addBool(packet.isEnd)
+        stream.addUint64(packet.classId)
+        stream.addStringWithLen(packet.name)
+    else:
+        stream.addBool(packet.isEnd)
+
 proc unpackRequest*(data : LimitedStream) : RequestPacket =
-    # Unpack request
+    # Unpack request    
     let id = RequestType(data.readUint8())
     case id
     of ADD_NEW_CLASS: result = unpackAddClass(data)
     of ADD_NEW_INSTANCE: result = unpackAddInstance(data)
     of ADD_NEW_FIELD: result = unpackAddField(data)
+    of GET_ALL_CLASSES: result = unpackGetAllClass(data)
+    of GET_ALL_INSTANCES: result = unpackGetAllInstance(data)
     else:
         raise newException(Exception, "Unknown request packet")
-    
+
+proc unpackResponse(id : ResponseType, code : ResponseCode, data : LimitedStream) : ResponsePacket =
+    # Unpack response with some data or not
+    case id
+    of GET_ALL_CLASSES_RESPONSE: result = unpackGetAllClassesResponse(data)
+    else:
+        result = OkResponse()
+    result.id = id
+    result.code = code
+
 proc unpackResponse*(data : LimitedStream) : ResponsePacket =
     # Unpack response
     let id = ResponseType(data.readUint8())
     let code = ResponseCode(data.readUint8())
     case code
-    of OK_CODE:
-        result = OkResponse(
-            id : id, 
-            code : code
-        )
+    of OK_CODE: result = unpackResponse(id, code, data)
     of ERROR_CODE:
         result = ErrorResponse(
             id : id,
