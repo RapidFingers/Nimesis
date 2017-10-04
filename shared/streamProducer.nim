@@ -143,13 +143,14 @@ proc addStringWithLen*(this : LimitedStream, value : string) : void =
     this.len += value.len + 1
 
 #############################################################################################
-# File stream
+# File writer
 
 proc newFileWriter*(file : AsyncFile) : FileWriter =
     # Create new file writer
     result = FileWriter(
         file : file
     )
+    result.init()
 
 proc flush*(this : FileWriter) : Future[void] {.async.} =
     # Write all data to file

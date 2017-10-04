@@ -1,0 +1,2 @@
+call buildServer.bat
+call buildClientGenerator.bat

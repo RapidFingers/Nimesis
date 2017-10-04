@@ -1,27 +1,28 @@
 import
-    valuePacker
+    valuePacker,
+    typetraits
 
 type 
     RequestType* = enum    
         ADD_NEW_CLASS,                      # Add new class
         ADD_NEW_INSTANCE,                   # Add new instance
-        ADD_NEW_FIELD,                      # Add new class field
-        GET_CLASS_FIELD_VALUE,              # Get class field value
-        GET_INSTANCE_FIELD_VALUE,           # Get instance field value
-        GET_CLASS_LIST_FIELD_COUNT          # Get class list field count
-        GET_INSTANCE_LIST_FIELD_COUNT       # Get instance list field count
-        GET_CLASS_LIST_FIELD_VALUE          # Get class list field value
-        GET_INSTANCE_LIST_FIELD_VALUE       # Get instance list field value        
-        SET_CLASS_FIELD_VALUE,              # Set class field value
-        SET_INSTANCE_FIELD_VALUE,           # Set instance field value
-        ADD_CLASS_LIST_FIELD_VALUE,         # Add class list field value
-        ADD_INSTANCE_LIST_FIELD_VALUE,      # Add instance list field value
-        SET_CLASS_LIST_FIELD_VALUE,         # Set class field value
-        SET_INSTANCE_LIST_FIELD_VALUE,      # Set instance field value
-        REMOVE_CLASS_LIST_FIELD_VALUE,      # Remove class list field value
-        REMOVE_INSTANCE_LIST_FIELD_VALUE,   # Remove instance list field value
-        CLEAR_CLASS_LIST_FIELD_VALUE,       # Clear class list field value
-        CLEAR_INSTANCE_LIST_FIELD_VALUE,    # Clear instance list field value
+        ADD_NEW_FIELD,                      # Add new class field        
+        GET_ALL_CLASSES,                    # Get iterate all classes
+        GET_ALL_INSTANCES,                  # Get iterate all instances
+        UPDATE_CLASS,                       # Update class data
+        UPDATE_INSTANCE,                    # Update instance data
+        UPDATE_FIELD,                       # Update field data
+        REMOVE_CLASS,                       # Remove class
+        REMOVE_INSTANCE,                    # Remove instance
+        REMOVE_FIELD,                       # Remove field
+        GET_FIELD_VALUE,                    # Get field value        
+        GET_LIST_FIELD_COUNT                # Get list field count        
+        GET_LIST_FIELD_VALUE                # Get list field value        
+        SET_FIELD_VALUE,                    # Set field value        
+        ADD_LIST_FIELD_VALUE,               # Add list field value        
+        SET_LIST_FIELD_VALUE,               # Set list field value        
+        REMOVE_LIST_FIELD_VALUE,            # Remove list field value        
+        CLEAR_LIST_FIELD_VALUE              # Clear list field value        
 
     ResponseType* = enum
         ADD_NEW_CLASS_RESPONSE,
@@ -50,80 +51,70 @@ import
 
 type
     # Base packet
-    RequestPacket* = object of RootObj
+    RequestPacket* = ref object of RootObj
         id* : RequestType
 
     # Add class request
-    AddClassRequest* = object of RequestPacket
+    AddClassRequest* = ref object of RequestPacket
         name* : string
         parentId* : uint64
 
     # Add class request
-    AddInstanceRequest* = object of RequestPacket
+    AddInstanceRequest* = ref object of RequestPacket
         name* : string
         classId* : uint64
 
     # Add field request
-    AddFieldRequest* = object of RequestPacket
+    AddFieldRequest* = ref object of RequestPacket
         name* : string
         classId* : uint64
         isClassField* : bool
         valueType* : uint8
 
-    # Base get field value request
-    GetFieldValueRequest* = object of RequestPacket
+    GetAllEntityRequest* = ref object of RequestPacket 
+        isEnd* : bool                   # End of data
+        classId* : uint64               # Class id
+        name* : string                  # Class name
+
+    # Iterate all classes
+    GetAllClassRequest* = ref object of GetAllEntityRequest
+        # classFields* : 
+        # instanceFields* :
+        # classMethods* :
+        # instanceMethods* :
+
+    # Iterate all instances
+    GetAllInstanceRequest* = ref object of GetAllEntityRequest        
+
+    # Get field value request
+    GetFieldValueRequest* = ref object of RequestPacket
         fieldId* : uint64
+        case isClassField* : bool
+        of false:
+            instanceId* : uint64
+        else:
+            discard
 
-    # Get class field value request
-    GetClassFieldValueRequest* = object of GetFieldValueRequest
-
-    # Get instance field value request
-    GetInstanceFieldValueRequest* = object of GetFieldValueRequest
-        instanceId* : uint64
-
-    # Base get class list field count
-    GetListFieldCountRequest* = object of RequestPacket
-        fieldId* : uint64
-
-    # Get instance list field count
-    GetClassListFieldCountRequest* = object of GetListFieldCountRequest        
-
-    # Get instance list field count
-    GetInstanceListFieldCountRequest* = object of GetListFieldCountRequest
-        instanceId* : uint64
-
-    # Base get list field value
-    GetListFieldValueRequest* = object of GetFieldValueRequest
-        start* : int32
-        len* : int32
-
-    # Get class list field value
-    GetClassListFieldValueRequest* = object of GetListFieldValueRequest    
-
-    # Get instance list field value
-    GetInstanceListFieldValueRequest* = object of GetListFieldValueRequest
-        instanceId* : uint64    
-
-    # Set value request
-    SetValueRequest* = object of RequestPacket
-        fieldId* : uint64
 
 type 
     # Base response
-    ResponsePacket* = object of RootObj
+    ResponsePacket* = ref object of RootObj
         id* : ResponseType                      # Id of packet
         code* : ResponseCode                    # Response code
 
     # Error response
-    ErrorResponse* = object of ResponsePacket
+    ErrorResponse* = ref object of ResponsePacket
         errorCode* : uint8      # Error code
 
     # Add new class response
-    OkResponse* = object of ResponsePacket
+    OkResponse* = ref object of ResponsePacket
 
-    GetFieldValueResponse* = object of OkResponse
+    # Iterate all classes response
+    GetAllClassResponse* = ref object of OkResponse
+
+
+    GetFieldValueResponse* = ref object of OkResponse
         value* : Value
-
 
 #############################################################################################
 # RequestPacket
@@ -132,10 +123,13 @@ type
 #############################################################################################
 # AddClassRequest
 
-proc packAddClass(stream : LimitedStream, packet : AddClassRequest) : void =
-    # Pack AddClassRequest    
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.parentId)
+proc newAddClass*(name : string, parentId : BiggestUInt) : AddClassRequest =
+    # Create add class request
+    result = AddClassRequest(
+        id : ADD_NEW_CLASS,
+        name : name,
+        parentId : parentId
+    )
 
 proc unpackAddClass(data : LimitedStream) : AddClassRequest =
     # Unpack to AddClassRequest
@@ -147,11 +141,6 @@ proc unpackAddClass(data : LimitedStream) : AddClassRequest =
 #############################################################################################
 # AddInstanceRequest
 
-proc packAddInstance(stream : LimitedStream, packet : AddInstanceRequest) : void =
-    # Pack AddInstanceRequest    
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.classId)
-
 proc unpackAddInstance(data : LimitedStream) : AddInstanceRequest =
     # Unpack to AddInstanceRequest
     result = AddInstanceRequest(
@@ -161,13 +150,6 @@ proc unpackAddInstance(data : LimitedStream) : AddInstanceRequest =
 
 #############################################################################################
 # AddFieldRequest
-
-proc packAddField(stream : LimitedStream, packet : AddFieldRequest) : void =
-    # Pack AddFieldRequest    
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.classId)
-    stream.addUint8(uint8 packet.isClassField)
-    stream.addUint8(packet.valueType)
 
 proc unpackAddField(data : LimitedStream) : AddFieldRequest =
     # Unpack AddFieldRequest
@@ -206,11 +188,6 @@ proc newErrorResponse*(packetId : ResponseType, errorCode : uint8) : ErrorRespon
         code : ERROR_CODE,
         errorCode : errorCode
     )
-
-proc packErrorResponse(stream : LimitedStream, packet : ErrorResponse) : void =
-    # Pack error response
-    packBaseResponse(stream, packet)
-    stream.addUint8(packet.errorCode)
 
 #############################################################################################
 # GetFieldValueResponse
@@ -257,19 +234,34 @@ proc packGetFieldValueResponse(stream : LimitedStream, packet : GetFieldValueRes
 #############################################################################################
 # Packager api
 
-proc packRequest*(stream : LimitedStream, packet : RequestPacket) : void =
+proc packRequest*(stream : LimitedStream, packet : AddClassRequest) : void = 
     # Pack request
-    case packet.id
-    of ADD_NEW_CLASS: packAddClass(stream, AddClassRequest(packet))
-    of ADD_NEW_INSTANCE: packAddInstance(stream, AddInstanceRequest(packet))
-    of ADD_NEW_FIELD: packAddField(stream, AddFieldRequest(packet))
-    #of GET_FIELD_VALUE: packAddField(stream, GetFieldValueRequest(packet))
-    else:
-        raise newException(Exception, "Unknown packet")
+    stream.addUint8(uint8 packet.id)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.parentId)
 
-proc packRequest*(packet : RequestPacket) : LimitedStream =
-    result = newLimitedStream()
-    packRequest(result, packet)
+proc packRequest*(stream : LimitedStream, packet : AddInstanceRequest) : void =
+    # Pack AddInstanceRequest    
+    stream.addUint8(uint8 packet.id)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.classId)
+
+proc packResponse*(stream : LimitedStream, packet : ErrorResponse) : void =
+    # Pack error response
+    packBaseResponse(stream, packet)
+    stream.addUint8(packet.errorCode)
+
+proc packRequest*(stream : LimitedStream, packet : AddFieldRequest) : void =
+    # Pack AddFieldRequest
+    stream.addUint8(uint8 packet.id)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.classId)
+    stream.addUint8(uint8 packet.isClassField)
+    stream.addUint8(packet.valueType)
+
+proc packResponse*(stream : LimitedStream, packet : OkResponse) : void =
+    # Pack ok response
+    packBaseResponse(stream, packet)
 
 proc unpackRequest*(data : LimitedStream) : RequestPacket =
     # Unpack request
@@ -279,15 +271,7 @@ proc unpackRequest*(data : LimitedStream) : RequestPacket =
     of ADD_NEW_INSTANCE: result = unpackAddInstance(data)
     of ADD_NEW_FIELD: result = unpackAddField(data)
     else:
-        raise newException(Exception, "Unknown packet")
-
-proc packResponse*(stream : LimitedStream, packet : ResponsePacket) : void =
-    # Pack response
-    if packet of OkResponse: packBaseResponse(stream, OkResponse(packet))
-    if packet of ErrorResponse: packErrorResponse(stream, ErrorResponse(packet))
-    if packet of GetFieldValueResponse: packGetFieldValueResponse(stream, GetFieldValueResponse(packet))
-    else:
-        raise newException(Exception, "Unknown packet")
+        raise newException(Exception, "Unknown request packet")
     
 proc unpackResponse*(data : LimitedStream) : ResponsePacket =
     # Unpack response

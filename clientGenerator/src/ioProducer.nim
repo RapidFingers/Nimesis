@@ -26,23 +26,28 @@ proc connect*(this : IODevice) : Future[void] {.async.} =
     )
     this.sock = this.ws.sock
 
-proc sendRequest(this : IODevice, req : RequestPacket) : Future[ResponsePacket] {.async.} =
+proc sendRequest(this : IODevice, stream : LimitedStream) : Future[ResponsePacket] {.async.} =
     # Send request
-    let stream = packetPacker.packRequest(req)
     await this.sock.sendBinary(stream.data, false)
     let f = await this.sock.readData(true)
     if f.opcode != Opcode.Binary:
         raise newException(Exception, "Only binary frame allowed")
     result = packetPacker.unpackResponse(f.data)
 
-proc addNewClass*(this : IODevice, req : AddClassRequest) : Future[ResponsePacket] {.async.} =
-    # Add new class
-    result = await this.sendRequest(req)
+proc addClass*(this : IODevice, req : AddClassRequest) : Future[ResponsePacket] {.async.} =
+    # Add new class    
+    let stream = newLimitedStream()
+    packetPacker.packRequest(stream, req)
+    result = await this.sendRequest(stream)
 
-proc addNewInstance*(this : IODevice, req : AddInstanceRequest) : Future[ResponsePacket] {.async.} =
+proc addInstance*(this : IODevice, req : AddInstanceRequest) : Future[ResponsePacket] {.async.} =
     # Add new instance
-    result = await this.sendRequest(req)
+    let stream = newLimitedStream()
+    packetPacker.packRequest(stream, req)
+    result = await this.sendRequest(stream)
 
-proc addNewField*(this : IODevice, req : AddFieldRequest) : Future[ResponsePacket] {.async.} =
+proc addField*(this : IODevice, req : AddFieldRequest) : Future[ResponsePacket] {.async.} =
     # Add new field
-    result = await this.sendRequest(req)
+    let stream = newLimitedStream()
+    packetPacker.packRequest(stream, req)
+    result = await this.sendRequest(stream)

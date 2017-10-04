@@ -27,14 +27,14 @@ proc newWorkspace() : Workspace =
     # Create new workspace
     result = Workspace()
 
-proc processAddNewClass(packet : AddClassRequest, response : LimitedStream) : Future[void] {.async.} = 
+proc processAddClass(packet : AddClassRequest, response : LimitedStream) : Future[void] {.async.} = 
     # Process add new class packet
     let parent = storage.getClassById(packet.parentId)
     let nclass = entityProducer.newClass(packet.name, parent)
     await storage.storeNewClass(nclass)
     response.packResponse(newOkResponse(ADD_NEW_CLASS_RESPONSE))
 
-proc processAddNewInstance(packet : AddInstanceRequest, response : LimitedStream) : Future[void] {.async.} = 
+proc processAddInstance(packet : AddInstanceRequest, response : LimitedStream) : Future[void] {.async.} = 
     # Process add new instance
     let class = storage.getClassById(packet.classId)
     if class.isNil: throwError(ADD_NEW_INSTANCE_RESPONSE, CLASS_NOT_FOUND)
@@ -86,8 +86,8 @@ proc processPacket(client : ClientData, packet : LimitedStream) {.async.} =
     var response : LimitedStream = newLimitedStream()
 
     case requestPacket.id
-    of ADD_NEW_CLASS: await processAddNewClass(AddClassRequest(requestPacket), response)
-    of ADD_NEW_INSTANCE: await processAddNewInstance(AddInstanceRequest(requestPacket), response)
+    of ADD_NEW_CLASS: await processAddClass(AddClassRequest(requestPacket), response)
+    of ADD_NEW_INSTANCE: await processAddInstance(AddInstanceRequest(requestPacket), response)
     of ADD_NEW_FIELD: await processAddField(AddFieldRequest(requestPacket), response)
     #of GET_FIELD_VALUE: await processGetFieldValue(packet, response)
     else:
