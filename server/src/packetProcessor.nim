@@ -13,11 +13,10 @@ import
 #############################################################################################
 # Private
 
-template throwError(packetId : ResponseType, errorCode : uint8) : void =
+template throwError(packetId : ResponseType, errorCode : ErrorType, msg : string = "") : void =
     # Throw simple error
     let error = newErrorResponse(packetId, errorCode)
-    echo "ERROR $1 $2" % [$packetId, $errorCode]
-    raise ioDevice.IoException(errorData : error)
+    raise newIoException(error, msg)
 
 #############################################################################################
 # Workspace of packet processor
@@ -64,6 +63,7 @@ proc processGetAllClasses(client : ClientData, packet : GetAllClassRequest) : Fu
             response.packResponse(newGetAllClassesResponse(
                 isEnd = false,
                 classId = c.id,
+                parentId = c.parentId(),
                 name = c.name
             ))
         else:
@@ -106,11 +106,11 @@ proc processGetAllClasses(client : ClientData, packet : GetAllClassRequest) : Fu
 
 proc processPacket(client : ClientData, packet : LimitedStream) : Future[void] {.async.} =    
     # Process packet from client
-    echo "processPacket"
-    echo packet.len
+    #echo "processPacket"
+    #echo packet.len
     let requestPacket = packetPacker.unpackRequest(packet)    
-    echo requestPacket.id
-
+    #echo requestPacket.id
+    
     case requestPacket.id
     of ADD_NEW_CLASS: await processAddClass(client, AddClassRequest(requestPacket))
     of ADD_NEW_INSTANCE: await processAddInstance(client, AddInstanceRequest(requestPacket))

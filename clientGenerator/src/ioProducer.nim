@@ -24,7 +24,9 @@ proc readData(this : IODevice) : Future[string] {.async.} =
 
 proc checkError(response : ResponsePacket) : void =
     # Check response on error
-    if (response.code == ERROR_CODE) and (response of ErrorResponse): 
+    if (response.id == INTERNAL_ERROR_RESPONSE):
+        raise newException(Exception, "INTERNAL ERROR")
+    if (response.code == ERROR_CODE) and (response of ErrorResponse):         
         let error = ErrorResponse(response)
         raise newException(Exception, $(error.errorCode))
 
@@ -40,10 +42,10 @@ proc connect*(this : IODevice) : Future[void] {.async.} =
     this.sock = this.ws.sock
 
 proc sendRequest(this : IODevice, stream : LimitedStream) : Future[ResponsePacket] {.async.} =
-    # Send request
-    await this.sock.sendBinary(stream.data, false)
-    let data = await this.readData()
-    result = packetPacker.unpackResponse(data)
+    # Send request    
+    await this.sock.sendBinary(stream.data, false)    
+    let data = await this.readData()    
+    result = packetPacker.unpackResponse(data)    
     checkError(result)
 
 proc addClass*(this : IODevice, req : AddClassRequest) : Future[AddClassResponse] {.async.} =
@@ -76,8 +78,7 @@ iterator allClasses*(this : IODevice) : GetAllClassResponse =
     let stream = newLimitedStream()
     packetPacker.packRequest(stream, newGetAllClass())
     waitFor this.sock.sendBinary(stream.data, false)    
-    var resp = this.readAllClassResponse()
-    yield resp
+    var resp = this.readAllClassResponse()    
     while not resp.isEnd:
-        resp = this.readAllClassResponse()
         yield resp
+        resp = this.readAllClassResponse()        

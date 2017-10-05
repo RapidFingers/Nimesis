@@ -106,6 +106,13 @@ proc initClass(this : Class, name : string, parent : Class) {.inline.} =
     this.instances = @[]
     this.childClasses = @[]
 
+proc parentId*(this : Class) : BiggestUInt {.inline.} =
+    # Return parent id
+    if not this.parent.isNil:
+        result = this.parent.id
+    else:
+        result = 0
+
 #############################################################################################
 # Instance
 

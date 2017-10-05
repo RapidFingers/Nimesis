@@ -25,6 +25,7 @@ type
         CLEAR_LIST_FIELD_VALUE              # Clear list field value        
 
     ResponseType* = enum
+        INTERNAL_ERROR_RESPONSE,
         ADD_NEW_CLASS_RESPONSE,
         ADD_NEW_INSTANCE_RESPONSE,
         ADD_NEW_FIELD_RESPONSE,
@@ -38,14 +39,16 @@ type
 #############################################################################################
 # Process errors
 
-# Class not found in storage
-const CLASS_NOT_FOUND* = 1
-# Instance not found in storage
-const INSTANCE_NOT_FOUND* = 2
-# Field not found in storage
-const FIELD_NOT_FOUND* = 3
-# Value not found in storage
-const VALUE_NOT_FOUND* = 4
+type ErrorType* = enum
+    INTERNAL_ERROR,
+    CLASS_NOT_FOUND,                        # Class not found in storage    
+    INSTANCE_NOT_FOUND,                     # Instance not found in storage
+    FIELD_NOT_FOUND,                        # Field not found in storage
+    VALUE_NOT_FOUND                         # Value not found in storage
+
+#############################################################################################
+# Process errors text
+const CLASS_NOT_FOUND_TEXT* = "Class not found"
 
 import
     streamProducer,
@@ -97,7 +100,7 @@ type
 
     # Error response
     ErrorResponse* = ref object of ResponsePacket
-        errorCode* : uint8      # Error code
+        errorCode* : ErrorType                  # Error code
 
     # Add new class response
     OkResponse* = ref object of ResponsePacket
@@ -121,6 +124,7 @@ type
 
     # Iterate all classes response
     GetAllClassResponse* = ref object of GetAllEntityResponse
+        parentId* : uint64              # Parent class id
         # classFields* : 
         # instanceFields* :
         # classMethods* :
@@ -135,6 +139,9 @@ type
 #############################################################################################
 # RequestPacket
 
+proc packBaseRequest(stream : LimitedStream, packet : RequestPacket) : void =
+    # Pack base request
+    stream.addUint8(uint8 packet.id)
 
 #############################################################################################
 # AddClassRequest
@@ -147,11 +154,17 @@ proc newAddClass*(name : string, parentId : BiggestUInt) : AddClassRequest =
         parentId : parentId
     )
 
-proc unpackAddClass(data : LimitedStream) : AddClassRequest =
+proc packRequest*(stream : LimitedStream, packet : AddClassRequest) : void =
+    # Pack AddClassRequest
+    packBaseRequest(stream, packet)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.parentId)
+
+proc unpackAddClass(stream : LimitedStream) : AddClassRequest =
     # Unpack to AddClassRequest
     result = AddClassRequest(
-        name: data.readStringWithLen(),
-        parentId: data.readUint64()
+        name: stream.readStringWithLen(),
+        parentId: stream.readUint64()
     )
 
 #############################################################################################
@@ -165,11 +178,17 @@ proc newAddInstance*(name : string, classId : BiggestUInt) : AddInstanceRequest 
         classId : classId
     )
 
-proc unpackAddInstance(data : LimitedStream) : AddInstanceRequest =
+proc packRequest*(stream : LimitedStream, packet : AddInstanceRequest) : void =
+    # Pack AddInstanceRequest
+    packBaseRequest(stream, packet)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.classId)
+
+proc unpackAddInstance(stream : LimitedStream) : AddInstanceRequest =
     # Unpack to AddInstanceRequest
     result = newAddInstance(
-        name = data.readStringWithLen(),
-        classId = data.readUint64()
+        name = stream.readStringWithLen(),
+        classId = stream.readUint64()
     )
 
 #############################################################################################
@@ -184,6 +203,14 @@ proc unpackAddField(data : LimitedStream) : AddFieldRequest =
         valueType: data.readUint8()
     )
 
+proc packRequest*(stream : LimitedStream, packet : AddFieldRequest) : void =
+    # Pack AddFieldRequest
+    packBaseRequest(stream, packet)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.classId)
+    stream.addUint8(uint8 packet.isClassField)
+    stream.addUint8(packet.valueType)
+
 #############################################################################################
 # GetAllClassRequest
 
@@ -193,7 +220,11 @@ proc newGetAllClass*() : GetAllClassRequest =
         id : GET_ALL_CLASSES
     )
 
-proc unpackGetAllClass(data : LimitedStream) : GetAllClassRequest =
+proc packRequest*(stream : LimitedStream, packet : GetAllClassRequest) : void =
+    # Pack GetAllClassRequest
+    packBaseRequest(stream, packet)
+
+proc unpackGetAllClass(stream : LimitedStream) : GetAllClassRequest =
     # Unpack GetAllClassRequest
     result = newGetAllClass()
 
@@ -228,16 +259,32 @@ proc newOkResponse*(packetId : ResponseType) : OkResponse =
         code : OK_CODE
     )
 
+proc packResponse*(stream : LimitedStream, packet : OkResponse) : void =
+    # Pack ok response
+    packBaseResponse(stream, packet)
+
 #############################################################################################
 # ErrorResponse
 
-proc newErrorResponse*(packetId : ResponseType, errorCode : uint8) : ErrorResponse =
+proc newErrorResponse*(packetId : ResponseType, errorCode : ErrorType) : ErrorResponse =
     # Create new Ok response
     result = ErrorResponse(
         id : packetId,
         code : ERROR_CODE,
         errorCode : errorCode
     )
+
+proc newInternalErrorResponse*() : ErrorResponse =
+    result = ErrorResponse(
+        id : INTERNAL_ERROR_RESPONSE,
+        code : ERROR_CODE,
+        errorCode : INTERNAL_ERROR
+    )
+
+proc packResponse*(stream : LimitedStream, packet : ErrorResponse) : void =
+    # Pack error response
+    packBaseResponse(stream, packet)
+    stream.addUint8(uint8 packet.errorCode)
 
 #############################################################################################
 # AddClassResponse
@@ -250,11 +297,16 @@ proc newAddClassResponse*(classId : uint64) : AddClassResponse =
         classId : classId
     )
 
-proc unpackAddClassResponse(data : LimitedStream) : AddClassResponse =
-    result = newAddClassResponse(
-        classId = data.readUint64()
-    )
+proc packResponse*(stream : LimitedStream, packet : AddClassResponse) : void =
+    # Pack AddClassResponse
+    packBaseResponse(stream, packet)
+    stream.addUint64(packet.classId)
 
+proc unpackAddClassResponse(stream : LimitedStream) : AddClassResponse =
+    # Unpack add class response
+    result = newAddClassResponse(
+        classId = stream.readUint64()
+    )
 
 #############################################################################################
 # AddInstanceResponse
@@ -267,39 +319,63 @@ proc newAddInstanceResponse*(instanceId : uint64) : AddInstanceResponse =
         instanceId : instanceId
     )
 
-proc unpackAddInstanceResponse(data : LimitedStream) : AddInstanceResponse =
+proc packResponse*(stream : LimitedStream, packet : AddInstanceResponse) : void =
+    # Pack AddClassResponse
+    packBaseResponse(stream, packet)
+    stream.addUint64(packet.instanceId)
+
+proc unpackAddInstanceResponse(stream : LimitedStream) : AddInstanceResponse =
+    # Unpack add instance response
     result = newAddInstanceResponse(
-        instanceId = data.readUint64()
+        instanceId = stream.readUint64()
     )
 
 #############################################################################################
 # GetAllClassResponse
 
-proc newGetAllClassesResponse*(isEnd : bool, classId : uint64 = 0, name : string = "") : GetAllClassResponse =
+proc newGetAllClassesResponse*(isEnd : bool, classId : uint64 = 0, parentId : uint64 = 0, name : string = "") : GetAllClassResponse =
     # Create new get all class response
     result = GetAllClassResponse(
         id : GET_ALL_CLASSES_RESPONSE,
         code : OK_CODE,
         isEnd : isEnd,
         classId : classId,
+        parentId : parentId,
         name : name
     )
 
-proc unpackGetAllClassesResponse(data : LimitedStream) : GetAllClassResponse =
-    # Get all classes response
-    let isEnd = data.readBool()
+proc packResponse*(stream : LimitedStream, packet : GetAllClassResponse) : void =
+    # Pack ok response
+    packBaseResponse(stream, packet)
+    if not packet.isEnd:
+        stream.addBool(packet.isEnd)
+        stream.addUint64(packet.classId)
+        stream.addUint64(packet.parentId)
+        stream.addStringWithLen(packet.name)
+    else:
+        stream.addBool(packet.isEnd)
+
+proc unpackGetAllClassesResponse(stream : LimitedStream) : GetAllClassResponse =
+    # Unpack all classes response
+    let isEnd = stream.readBool()
     if not isEnd:
         result = newGetAllClassesResponse(
             isEnd = isEnd,
-            classId = data.readUint64(),
-            name = data.readStringWithLen(),
+            classId = stream.readUint64(),
+            parentId = stream.readUint64(),
+            name = stream.readStringWithLen(),
         )
     else:
         result = newGetAllClassesResponse(
-            isEnd = isEnd,
-            classId = 0,
-            name = "",
-        )
+            isEnd = isEnd
+        )        
+
+#############################################################################################
+# GetAllInstanceRequest
+
+proc packRequest*(stream : LimitedStream, packet : GetAllInstanceRequest) : void =
+    # Pack GetAllInstanceRequest
+    packBaseRequest(stream, packet)
 
 #############################################################################################
 # GetFieldValueResponse
@@ -346,67 +422,6 @@ proc unpackGetAllClassesResponse(data : LimitedStream) : GetAllClassResponse =
 #############################################################################################
 # Packager api
 
-proc packBaseRequest(stream : LimitedStream, packet : RequestPacket) : void =
-    # Pack base request
-    stream.addUint8(uint8 packet.id)
-
-proc packRequest*(stream : LimitedStream, packet : AddClassRequest) : void =
-    # Pack AddClassRequest
-    packBaseRequest(stream, packet)
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.parentId)
-
-proc packRequest*(stream : LimitedStream, packet : AddInstanceRequest) : void =
-    # Pack AddInstanceRequest
-    packBaseRequest(stream, packet)
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.classId)
-
-proc packRequest*(stream : LimitedStream, packet : GetAllClassRequest) : void =
-    # Pack GetAllClassRequest
-    packBaseRequest(stream, packet)
-
-proc packRequest*(stream : LimitedStream, packet : GetAllInstanceRequest) : void =
-    # Pack GetAllInstanceRequest
-    packBaseRequest(stream, packet)
-
-proc packRequest*(stream : LimitedStream, packet : AddFieldRequest) : void =
-    # Pack AddFieldRequest
-    packBaseRequest(stream, packet)
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.classId)
-    stream.addUint8(uint8 packet.isClassField)
-    stream.addUint8(packet.valueType)
-
-proc packResponse*(stream : LimitedStream, packet : ErrorResponse) : void =
-    # Pack error response
-    packBaseResponse(stream, packet)
-    stream.addUint8(packet.errorCode)
-
-proc packResponse*(stream : LimitedStream, packet : OkResponse) : void =
-    # Pack ok response
-    packBaseResponse(stream, packet)
-
-proc packResponse*(stream : LimitedStream, packet : AddClassResponse) : void =
-    # Pack AddClassResponse
-    packBaseResponse(stream, packet)
-    stream.addUint64(packet.classId)
-
-proc packResponse*(stream : LimitedStream, packet : AddInstanceResponse) : void =
-    # Pack AddClassResponse
-    packBaseResponse(stream, packet)
-    stream.addUint64(packet.instanceId)
-
-proc packResponse*(stream : LimitedStream, packet : GetAllClassResponse) : void =
-    # Pack ok response
-    packBaseResponse(stream, packet)
-    if not packet.isEnd:
-        stream.addBool(packet.isEnd)
-        stream.addUint64(packet.classId)
-        stream.addStringWithLen(packet.name)
-    else:
-        stream.addBool(packet.isEnd)
-
 proc unpackRequest*(data : LimitedStream) : RequestPacket =
     # Unpack request    
     let id = RequestType(data.readUint8())
@@ -440,7 +455,7 @@ proc unpackResponse*(data : LimitedStream) : ResponsePacket =
         result = ErrorResponse(
             id : id,
             code : code,
-            errorCode : data.readUint8()
+            errorCode : ErrorType(data.readUint8())
         )
     else:
         raise newException(Exception, "Unknown responce code")

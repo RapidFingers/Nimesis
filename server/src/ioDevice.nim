@@ -5,15 +5,9 @@ import
     asyncdispatch,
     strutils,
     streams,
+    ../../shared/coreTypes,
     ../../shared/packetPacker,
     ../../shared/streamProducer
-
-# Protocol name
-const PROTOCOL_NAME = "nimesis"
-# Default port for recieving data
-const DEFAULT_PORT = 9001
-# Internal error
-const INTERNAL_ERROR = 0
 
 #############################################################################################
 # Client data
@@ -33,6 +27,12 @@ proc newClientData*(socket : AsyncSocket) : ClientData =
 type IoException* = ref object of Exception
     errorData* : ErrorResponse
 
+proc newIoException*(errorData : ErrorResponse, msg : string = "") : IoException =
+    result = IoException(
+        errorData : errorData,
+        msg : msg
+    )
+
 #############################################################################################
 type RecievePacket* = proc(client : ClientData, packet : LimitedStream) : Future[void]
 type Workspace = ref object
@@ -51,7 +51,7 @@ proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.}
 proc callback(request: Request) : Future[void] {.async, gcsafe.} =
     # Websocket callback
     echo "Accepted"
-    let (success, error) = await(verifyWebsocketRequest(request, PROTOCOL_NAME))
+    let (success, error) = await(verifyWebsocketRequest(request, NIMESIS_PROTOCOL))
     if not success:
         await request.respond(Http400, "Websocket negotiation failed: " & error)
         echo error
@@ -73,21 +73,20 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                 # Send internal error to client and break
                 if processFut.failed:
                     # If known exception
+                    var errorResponse : ErrorResponse = nil
                     if processFut.error of IoException:
-                        echo "IoException"
-                        let exception = IoException(processFut.error)
-                        let response = newLimitedStream()
-                        packetPacker.packResponse(response, exception.errorData)
-                        discard send(client, response)
-                        break
+                        let ioErr = IoException(processFut.error)
+                        errorResponse = ioErr.errorData                        
                     # If unknown exception
                     else:
-                        let stream = newLimitedStream()
-                        stream.addUint8(INTERNAL_ERROR)
-                        stream.toStart()
-                        discard send(client, stream)
-                        echo processFut.error.msg
-                        break
+                        echo "INTERNAL ERROR"
+                        errorResponse = newInternalErrorResponse()
+
+                    let response = newLimitedStream()
+                    packetPacker.packResponse(response, errorResponse)
+                    discard send(client, response)
+                    echo errorResponse.errorCode
+                    echo processFut.error.msg
             else:
                 echo "Only binary protocol allowed"
                 break
@@ -107,7 +106,7 @@ proc setOnPacket*(call : RecievePacket) : void =
 proc listen*() : void =
     # Start listen for clients
     echo "Start listening"
-    waitFor workspace.server.serve(Port(DEFAULT_PORT), callback)
+    waitFor workspace.server.serve(Port(DEFAULT_SERVER_PORT), callback)
 
 proc init*() =
     # Init workspace
