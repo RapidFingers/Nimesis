@@ -102,6 +102,18 @@ type
     # Add new class response
     OkResponse* = ref object of ResponsePacket
 
+    # Add class response
+    AddClassResponse* = ref object of ResponsePacket
+        classId* : uint64
+
+    # Add class response
+    AddInstanceResponse* = ref object of ResponsePacket
+        instanceId* : uint64
+
+    # Add class response
+    AddFieldResponse* = ref object of ResponsePacket
+        fieldId* : uint64
+
     GetAllEntityResponse* = ref object of OkResponse
         isEnd* : bool                   # End of data
         classId* : uint64               # Class id
@@ -145,11 +157,19 @@ proc unpackAddClass(data : LimitedStream) : AddClassRequest =
 #############################################################################################
 # AddInstanceRequest
 
+proc newAddInstance*(name : string, classId : BiggestUInt) : AddInstanceRequest =
+    # Create add instance request
+    result = AddInstanceRequest(
+        id : ADD_NEW_INSTANCE,
+        name : name,
+        classId : classId
+    )
+
 proc unpackAddInstance(data : LimitedStream) : AddInstanceRequest =
     # Unpack to AddInstanceRequest
-    result = AddInstanceRequest(
-        name: data.readStringWithLen(),
-        classId: data.readUint64()
+    result = newAddInstance(
+        name = data.readStringWithLen(),
+        classId = data.readUint64()
     )
 
 #############################################################################################
@@ -220,12 +240,46 @@ proc newErrorResponse*(packetId : ResponseType, errorCode : uint8) : ErrorRespon
     )
 
 #############################################################################################
+# AddClassResponse
+
+proc newAddClassResponse*(classId : uint64) : AddClassResponse =
+    # Add class response
+    result = AddClassResponse(
+        id : ADD_NEW_CLASS_RESPONSE,
+        code : OK_CODE,
+        classId : classId
+    )
+
+proc unpackAddClassResponse(data : LimitedStream) : AddClassResponse =
+    result = newAddClassResponse(
+        classId = data.readUint64()
+    )
+
+
+#############################################################################################
+# AddInstanceResponse
+
+proc newAddInstanceResponse*(instanceId : uint64) : AddInstanceResponse =
+    # Add instance response
+    result = AddInstanceResponse(
+        id : ADD_NEW_INSTANCE_RESPONSE,
+        code : OK_CODE,
+        instanceId : instanceId
+    )
+
+proc unpackAddInstanceResponse(data : LimitedStream) : AddInstanceResponse =
+    result = newAddInstanceResponse(
+        instanceId = data.readUint64()
+    )
+
+#############################################################################################
 # GetAllClassResponse
 
 proc newGetAllClassesResponse*(isEnd : bool, classId : uint64 = 0, name : string = "") : GetAllClassResponse =
     # Create new get all class response
     result = GetAllClassResponse(
         id : GET_ALL_CLASSES_RESPONSE,
+        code : OK_CODE,
         isEnd : isEnd,
         classId : classId,
         name : name
@@ -333,6 +387,16 @@ proc packResponse*(stream : LimitedStream, packet : OkResponse) : void =
     # Pack ok response
     packBaseResponse(stream, packet)
 
+proc packResponse*(stream : LimitedStream, packet : AddClassResponse) : void =
+    # Pack AddClassResponse
+    packBaseResponse(stream, packet)
+    stream.addUint64(packet.classId)
+
+proc packResponse*(stream : LimitedStream, packet : AddInstanceResponse) : void =
+    # Pack AddClassResponse
+    packBaseResponse(stream, packet)
+    stream.addUint64(packet.instanceId)
+
 proc packResponse*(stream : LimitedStream, packet : GetAllClassResponse) : void =
     # Pack ok response
     packBaseResponse(stream, packet)
@@ -359,6 +423,8 @@ proc unpackResponse(id : ResponseType, code : ResponseCode, data : LimitedStream
     # Unpack response with some data or not
     case id
     of GET_ALL_CLASSES_RESPONSE: result = unpackGetAllClassesResponse(data)
+    of ADD_NEW_CLASS_RESPONSE: result = unpackAddClassResponse(data)
+    of ADD_NEW_INSTANCE_RESPONSE: result = unpackAddInstanceResponse(data)
     else:
         result = OkResponse()
     result.id = id

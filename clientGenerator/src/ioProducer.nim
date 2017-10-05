@@ -46,37 +46,38 @@ proc sendRequest(this : IODevice, stream : LimitedStream) : Future[ResponsePacke
     result = packetPacker.unpackResponse(data)
     checkError(result)
 
-proc addClass*(this : IODevice, req : AddClassRequest) : Future[ResponsePacket] {.async.} =
+proc addClass*(this : IODevice, req : AddClassRequest) : Future[AddClassResponse] {.async.} =
     # Add new class    
     let stream = newLimitedStream()
     packetPacker.packRequest(stream, req)
-    result = await this.sendRequest(stream)
+    result = AddClassResponse(await this.sendRequest(stream))
 
-proc addInstance*(this : IODevice, req : AddInstanceRequest) : Future[ResponsePacket] {.async.} =
+proc addInstance*(this : IODevice, req : AddInstanceRequest) : Future[AddInstanceResponse] {.async.} =
     # Add new instance
     let stream = newLimitedStream()
     packetPacker.packRequest(stream, req)
-    result = await this.sendRequest(stream)
+    result = AddInstanceResponse(await this.sendRequest(stream))
 
-proc addField*(this : IODevice, req : AddFieldRequest) : Future[ResponsePacket] {.async.} =
+proc addField*(this : IODevice, req : AddFieldRequest) : Future[AddFieldResponse] {.async.} =
     # Add new field
     let stream = newLimitedStream()
     packetPacker.packRequest(stream, req)
-    result = await this.sendRequest(stream)
+    result = AddFieldResponse(await this.sendRequest(stream))
+
+proc readAllClassResponse(this : IODevice) : GetAllClassResponse =
+    # Read one response
+    let data = waitFor this.readData()
+    var rsp = packetPacker.unpackResponse(data)
+    checkError(rsp)
+    result = GetAllClassResponse(rsp)
 
 iterator allClasses*(this : IODevice) : GetAllClassResponse =
     # Iterate all classes
     let stream = newLimitedStream()
-    packetPacker.packRequest(stream, newGetAllClass())    
-    waitFor this.sock.sendBinary(stream.data, false)        
-    let data = waitFor this.readData()
-    var rsp = packetPacker.unpackResponse(data)
-    checkError(rsp)    
-    var resp = GetAllClassResponse(rsp)
+    packetPacker.packRequest(stream, newGetAllClass())
+    waitFor this.sock.sendBinary(stream.data, false)    
+    var resp = this.readAllClassResponse()
     yield resp
     while not resp.isEnd:
-        let data = waitFor this.readData()
-        rsp = packetPacker.unpackResponse(data)
-        checkError(rsp)
-        resp = GetAllClassResponse(rsp)
+        resp = this.readAllClassResponse()
         yield resp

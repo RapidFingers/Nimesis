@@ -16,6 +16,7 @@ import
 template throwError(packetId : ResponseType, errorCode : uint8) : void =
     # Throw simple error
     let error = newErrorResponse(packetId, errorCode)
+    echo "ERROR $1 $2" % [$packetId, $errorCode]
     raise ioDevice.IoException(errorData : error)
 
 #############################################################################################
@@ -33,7 +34,7 @@ proc processAddClass(client : ClientData, packet : AddClassRequest) : Future[voi
     let nclass = entityProducer.newClass(packet.name, parent)
     await storage.storeNewClass(nclass)
     var response = newLimitedStream()
-    response.packResponse(newOkResponse(ADD_NEW_CLASS_RESPONSE))
+    response.packResponse(newAddClassResponse(nclass.id))
     await ioDevice.send(client, response)
 
 proc processAddInstance(client : ClientData, packet : AddInstanceRequest) : Future[void] {.async.} = 
@@ -43,7 +44,7 @@ proc processAddInstance(client : ClientData, packet : AddInstanceRequest) : Futu
     let ninstance = entityProducer.newInstance(packet.name, class)
     await storage.storeNewInstance(ninstance)
     var response = newLimitedStream()
-    response.packResponse(newOkResponse(ADD_NEW_INSTANCE_RESPONSE))
+    response.packResponse(newAddInstanceResponse(ninstance.id))
     await ioDevice.send(client, response)
 
 proc processAddField(client : ClientData, packet : AddFieldRequest) : Future[void] {.async.} =

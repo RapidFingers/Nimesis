@@ -68,12 +68,13 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
             if f.opcode == Opcode.Binary:
                 var packet = newLimitedStream()
                 packet.setData(f.data)
-                let processFut = workspace.onPacket(client, packet)
+                let processFut = workspace.onPacket(client, packet)                
                 yield processFut
                 # Send internal error to client and break
                 if processFut.failed:
                     # If known exception
                     if processFut.error of IoException:
+                        echo "IoException"
                         let exception = IoException(processFut.error)
                         let response = newLimitedStream()
                         packetPacker.packResponse(response, exception.errorData)
