@@ -74,7 +74,6 @@ iterator allClasses*(this : IODevice) : GetAllClassResponse =
     checkError(rsp)    
     var resp = GetAllClassResponse(rsp)
     yield resp
-    echo repr resp
     while not resp.isEnd:
         let data = waitFor this.readData()
         rsp = packetPacker.unpackResponse(data)

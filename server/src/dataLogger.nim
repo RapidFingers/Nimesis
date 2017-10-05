@@ -139,7 +139,7 @@ proc logNewClass*(record : AddClassRecord) : Future[void] {.async.} =
     writer.addUint8(ADD_CLASS_COMMAND)
     writer.addUint64(record.id)    
     writer.addUint64(record.parentId)    
-    writer.addString(record.name)
+    writer.addStringWithLen(record.name)
     await writer.flush()
 
 proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
@@ -151,7 +151,7 @@ proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
         writer.addUint8(ADD_INSTANCE_FIELD_COMMAND)
     writer.addUint64(record.id)
     writer.addUint64(record.classId)
-    writer.addString(record.name)
+    writer.addStringWithLen(record.name)
     await writer.flush()
 
 proc logNewInstance*(record : AddInstanceRecord) : Future[void] {.async.} =
@@ -160,7 +160,7 @@ proc logNewInstance*(record : AddInstanceRecord) : Future[void] {.async.} =
     writer.addUint8(ADD_INSTANCE_COMMAND)
     writer.addUint64(record.id)
     writer.addUint64(record.classId)
-    writer.addString(record.name)
+    writer.addStringWithLen(record.name)
     await writer.flush()
 
 proc logSetValue*(record : SetValueRecord) : Future[void] {.async.} =

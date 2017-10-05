@@ -10,7 +10,7 @@ proc test() {.async.} =
     await io.connect()
     # let resp = await io.addClass(
     #     newAddClass(
-    #         name = "BaseClass",
+    #         name = "GoodClass",
     #         parentId = 0
     #     )
     # )
