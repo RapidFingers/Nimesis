@@ -215,7 +215,7 @@ iterator values*() : DbValue =
 
 proc init*() : void =
     # Init database
-    echo "Init database"
+    #echo "Init database"
     workspace = newWorkspace()
     initDatabase()
-    echo "Init database complete"
+    #echo "Init database complete"

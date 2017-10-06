@@ -10,7 +10,7 @@ let io = newIoDevice()
 waitFor io.connect()
 
 proc addClass() {.async.} =    
-    for i in 0..1000:        
+    for i in 0..100:        
         discard await io.addClass(
             newAddClass(
                 name = "Weapon_$1" % ($i),
@@ -32,8 +32,8 @@ proc addInstance() : Future[uint64] {.async.} =
 
 proc allClasses() {.async.} =
     for c in io.allClasses():
-        discard
+        echo c.name
 
-#waitFor addClass()
+waitFor addClass()
 #echo waitFor addInstance()
-waitFor allClasses()
+#waitFor allClasses()

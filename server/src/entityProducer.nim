@@ -64,17 +64,24 @@ type
 #############################################################################################
 # Workspace of producer
 type Workspace = ref object
+    idInc : BiggestUInt
+
 var workspace {.threadvar.} : Workspace
 
 proc newWorkspace() : Workspace =
     # Create new workspace
-    result = Workspace()
+    result = Workspace(
+        idInc : 0
+    )
 
 #############################################################################################
 # Utility
 
 # Create new id
-template newId() : BiggestUInt = BiggestUInt(epochTime() * 1000000)
+proc newId() : BiggestUInt = 
+    result = workspace.idInc
+    workspace.idInc += 1
+    #BiggestUInt(epochTime() * 1000000)
 
 #############################################################################################
 # Entity
@@ -180,6 +187,6 @@ proc newField*(id : BiggestUInt, name : string, parent : Class, isClassField : b
 
 proc init*() =
     # Init producer
-    echo "Init producer"
+    #echo "Init producer"
     workspace = newWorkspace()
-    echo "Init producer complete"
+    #echo "Init producer complete"

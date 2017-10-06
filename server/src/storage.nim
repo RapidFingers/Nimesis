@@ -36,7 +36,7 @@ proc placeToDatabase() : void =
     for record in dataLogger.allRecords():
         database.writeLogRecord(record)
     dataLogger.removeLog()
-    echo "All log placed to database"
+    #echo "All log placed to database"
 
 proc getClass(classTable : TableRef[BiggestUInt, DbClass], id : BiggestUInt) : Class =
     # Get class from class table with all parents
@@ -67,7 +67,7 @@ proc loadFromDatabase() : void =
 
     # Load values to memory, except blobs
     
-    echo "All data loaded from database"
+    #echo "All data loaded from database"
 
 #############################################################################################
 # Public interface
@@ -75,7 +75,7 @@ proc loadFromDatabase() : void =
 iterator allClasses*() : Class =
     # Iterate all classes
     for k, v in workspace.classes:
-        echo v.name
+        #echo v.name
         yield v
     yield nil
 
@@ -139,10 +139,10 @@ proc setFieldValue*(field : Field, value : Value) : void =
 
 proc init*() : void =
     # Init storage
-    echo "Initing storage"
+    #echo "Initing storage"
     workspace = newWorkspace()
     dataLogger.init()
     database.init()
     placeToDatabase()
     loadFromDatabase()
-    echo "Init storage complete"
+    #echo "Init storage complete"

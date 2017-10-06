@@ -8,16 +8,12 @@ import
 
 const LOG_FILE_NAME = "change.log"
 
-# Command to add class
-const ADD_CLASS_COMMAND = 1
-# Command to add instance
-const ADD_INSTANCE_COMMAND = 2
-# Command to add class field
-const ADD_CLASS_FIELD_COMMAND = 3
-# Command to add instance field
-const ADD_INSTANCE_FIELD_COMMAND = 4
-# Command to set field value
-const SET_VALUE_COMMAND = 5
+type LogRecordType* = enum
+    ADD_CLASS_COMMAND,                              # Command to add class
+    ADD_INSTANCE_COMMAND,                           # Command to add instance
+    ADD_CLASS_FIELD_COMMAND,                        # Command to add class field
+    ADD_INSTANCE_FIELD_COMMAND,                     # Command to add instance field
+    SET_VALUE_COMMAND                               # Command to set field value
 
 #############################################################################################
 # Log records
@@ -74,11 +70,11 @@ proc getWriter() : FileWriter =
     result = newFileWriter(workspace.file)
 
 proc processAddClass(data : FileReader) : Future[AddClassRecord] {.async.} =
-    # Process add class record
+    # Process add class record        
     result = AddClassRecord()
     result.id = await data.readUint64()
     result.parentId = await data.readUint64()
-    result.name = await data.readStringWithLen()
+    result.name = await data.readStringWithLen()    
 
 proc processAddInstance(data : FileReader) : Future[AddInstanceRecord] {.async.} =
     # Process add instance record
@@ -121,14 +117,15 @@ proc processSetValue(data : FileReader, isClassField : bool = true) : Future[Set
     
 proc processRecord(reader : FileReader) : Future[LogRecord] {.async.} = 
     # Process record
-    let recType = await reader.readUint8()
+    let recType = LogRecordType(await reader.readUint8())    
     case recType
     of ADD_CLASS_COMMAND: return await processAddClass(reader)
     of ADD_INSTANCE_COMMAND: return await processAddInstance(reader)
     of ADD_CLASS_FIELD_COMMAND: return await processAddField(reader)
     of ADD_INSTANCE_FIELD_COMMAND: return await processAddField(reader, true)
     of SET_VALUE_COMMAND: return await processSetValue(reader)
-    else: raise newException(Exception, "Wrong record")
+    else:
+        raise newException(Exception, "Wrong record")
 
 #############################################################################################
 # Public interface
@@ -136,7 +133,7 @@ proc processRecord(reader : FileReader) : Future[LogRecord] {.async.} =
 proc logNewClass*(record : AddClassRecord) : Future[void] {.async.} =
     # Log new class    
     var writer = getWriter()
-    writer.addUint8(ADD_CLASS_COMMAND)
+    writer.addUint8(uint8 ADD_CLASS_COMMAND)
     writer.addUint64(record.id)    
     writer.addUint64(record.parentId)    
     writer.addStringWithLen(record.name)
@@ -146,9 +143,9 @@ proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
     # Log new field
     var writer = getWriter()
     if record.isClassField:
-        writer.addUint8(ADD_CLASS_FIELD_COMMAND)
+        writer.addUint8(uint8 ADD_CLASS_FIELD_COMMAND)
     else:
-        writer.addUint8(ADD_INSTANCE_FIELD_COMMAND)
+        writer.addUint8(uint8 ADD_INSTANCE_FIELD_COMMAND)
     writer.addUint64(record.id)
     writer.addUint64(record.classId)
     writer.addStringWithLen(record.name)
@@ -157,7 +154,7 @@ proc logNewField*(record : AddFieldRecord) : Future[void] {.async.} =
 proc logNewInstance*(record : AddInstanceRecord) : Future[void] {.async.} =
     # Log new instance        
     var writer = getWriter()
-    writer.addUint8(ADD_INSTANCE_COMMAND)
+    writer.addUint8(uint8 ADD_INSTANCE_COMMAND)
     writer.addUint64(record.id)
     writer.addUint64(record.classId)
     writer.addStringWithLen(record.name)
@@ -166,7 +163,7 @@ proc logNewInstance*(record : AddInstanceRecord) : Future[void] {.async.} =
 proc logSetValue*(record : SetValueRecord) : Future[void] {.async.} =
     # Log set value
     var writer = getWriter()
-    writer.addUint8(SET_VALUE_COMMAND)
+    writer.addUint8(uint8 SET_VALUE_COMMAND)
     writer.addUint64(record.id)
     writer.addBool(record.isClassField)
     if not record.isClassField:
@@ -204,6 +201,6 @@ proc removeLog*() : void =
 
 proc init*() : void =
     # Init data logger
-    echo "Init data logger"
+    #echo "Init data logger"
     workspace = newWorkspace()
-    echo "Init data logger complete"
+    #echo "Init data logger complete"

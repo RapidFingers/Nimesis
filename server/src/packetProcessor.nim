@@ -126,7 +126,7 @@ proc processPacket(client : ClientData, packet : LimitedStream) : Future[void] {
 
 proc init*() =
     # Init workspace
-    echo "Init packet processor"
+    #echo "Init packet processor"
     workspace = newWorkspace()
     ioDevice.setOnPacket(processPacket)
-    echo "Init packet processor complete"
+    #echo "Init packet processor complete"

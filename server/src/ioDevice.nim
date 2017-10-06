@@ -50,11 +50,11 @@ proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.}
 # TODO: too complex
 proc callback(request: Request) : Future[void] {.async, gcsafe.} =
     # Websocket callback
-    echo "Accepted"
+    #echo "Accepted"
     let (success, error) = await(verifyWebsocketRequest(request, NIMESIS_PROTOCOL))
     if not success:
         await request.respond(Http400, "Websocket negotiation failed: " & error)
-        echo error
+        #echo error
         request.client.close()
     else:
         # New session
@@ -79,20 +79,20 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                         errorResponse = ioErr.errorData                        
                     # If unknown exception
                     else:
-                        echo "INTERNAL ERROR"
+                        #echo "INTERNAL ERROR"
                         errorResponse = newInternalErrorResponse()
 
                     let response = newLimitedStream()
                     packetPacker.packResponse(response, errorResponse)
                     discard send(client, response)
-                    echo errorResponse.errorCode
-                    echo processFut.error.msg
+                    #echo errorResponse.errorCode
+                    #echo processFut.error.msg
             else:
-                echo "Only binary protocol allowed"
+                #echo "Only binary protocol allowed"
                 break
                 
         request.client.close()
-        echo "Done"
+        #echo "Done"
 
 proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.} =
     # Send packet to client
@@ -105,11 +105,11 @@ proc setOnPacket*(call : RecievePacket) : void =
 
 proc listen*() : void =
     # Start listen for clients
-    echo "Start listening"
+    #echo "Start listening"
     waitFor workspace.server.serve(Port(DEFAULT_SERVER_PORT), callback)
 
 proc init*() =
     # Init workspace
-    echo "Init io device"
+    #echo "Init io device"
     workspace = newWorkspace()    
-    echo "Init io device complete"    
+    #echo "Init io device complete"    
