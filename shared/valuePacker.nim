@@ -29,46 +29,46 @@ type
         data* : seq[StructureData]          # Array of structure data
 
     # Base value
-    Value* = object of RootObj
+    Value* = ref object of RootObj
 
     # Int32 value
-    VInt* = object of Value
+    VInt* = ref object of Value
         value* : int32
 
     # Float64 value
-    VFloat* = object of Value
+    VFloat* = ref object of Value
         value* : float64
 
     # String value
-    VString* = object of Value
+    VString* = ref object of Value
         value* : string
 
     # Reference value
-    VRef* = object of Value
+    VRef* = ref object of Value
         value* : uint64
 
     # Data structure value
-    VStructure* = object of Value
+    VStructure* = ref object of Value
         value* : SingleStructure
 
     # Array of int32 value
-    VIntArray* = object of Value
+    VIntArray* = ref object of Value
         value : seq[int32]
 
     # Array of float64 value
-    VFloatArray* = object of Value
+    VFloatArray* = ref object of Value
         value* : seq[float64]
     
     # Array of string value
-    VStringArray* = object of Value
+    VStringArray* = ref object of Value
         value* : seq[string]
 
     # Array of reference value
-    VRefArray* = object of Value
+    VRefArray* = ref object of Value
         value* : seq[uint64]
 
     # Array of data structure value
-    VStructureArray* = object of Value
+    VStructureArray* = ref object of Value
         value* : ArrayStructure
 
 proc getInt*(this : Value) : int32 =

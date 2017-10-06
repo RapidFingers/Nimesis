@@ -16,10 +16,10 @@ type
         REMOVE_CLASS,                       # Remove class
         REMOVE_INSTANCE,                    # Remove instance
         REMOVE_FIELD,                       # Remove field
-        GET_FIELD_VALUE,                    # Get field value        
+        GET_VALUE,                          # Get field value        
         GET_LIST_FIELD_COUNT                # Get list field count        
         GET_LIST_FIELD_VALUE                # Get list field value        
-        SET_FIELD_VALUE,                    # Set field value        
+        SET_VALUE,                          # Set field value        
         ADD_LIST_FIELD_VALUE,               # Add list field value        
         SET_LIST_FIELD_VALUE,               # Set list field value        
         REMOVE_LIST_FIELD_VALUE,            # Remove list field value        
@@ -31,7 +31,8 @@ type
         ADD_NEW_INSTANCE_RESPONSE,
         ADD_NEW_FIELD_RESPONSE,
         GET_ALL_CLASSES_RESPONSE,
-        GET_ALL_INSTANCES_RESPONSE
+        GET_ALL_INSTANCES_RESPONSE,
+        GET_VALUE_RESPONSE
 
     ResponseCode* = enum
         OK_CODE,
@@ -75,8 +76,8 @@ type
     # Iterate all instances
     GetAllInstanceRequest* = ref object of RequestPacket        
 
-    # Get field value request
-    GetFieldValueRequest* = ref object of RequestPacket
+    # Base field value request
+    FieldValueRequest* = ref object of RequestPacket
         fieldId* : uint64
         case isClassField* : bool
         of false:
@@ -84,6 +85,12 @@ type
         else:
             discard
 
+    # Get field value request
+    GetFieldValueRequest* = ref object of FieldValueRequest
+    
+    # Set field value request
+    SetFieldValueRequest* = ref object of FieldValueRequest
+        value* : Value
 
 type 
     # Base response
@@ -204,6 +211,14 @@ proc newAddField*(name : string, classId : BiggestUInt, isClassField : bool, val
         valueType : valueType
     )
 
+proc packRequest*(stream : LimitedStream, packet : AddFieldRequest) : void =
+    # Pack AddFieldRequest
+    packBaseRequest(stream, packet)
+    stream.addStringWithLen(packet.name)
+    stream.addUint64(packet.classId)
+    stream.addUint8(uint8 packet.isClassField)
+    stream.addUint8(uint8 packet.valueType)
+
 proc unpackAddField(data : LimitedStream) : AddFieldRequest =
     # Unpack AddFieldRequest
     result = newAddField(
@@ -213,13 +228,36 @@ proc unpackAddField(data : LimitedStream) : AddFieldRequest =
         valueType = ValueType(data.readUint8())
     )
 
-proc packRequest*(stream : LimitedStream, packet : AddFieldRequest) : void =
-    # Pack AddFieldRequest
-    packBaseRequest(stream, packet)
-    stream.addStringWithLen(packet.name)
-    stream.addUint64(packet.classId)
+#############################################################################################
+# GetFieldValueRequest
+
+proc newGetFieldValueRequest*(fieldId : uint64, isClassField : bool, instanceId : uint64 = 0) : GetFieldValueRequest =
+    result = GetFieldValueRequest(
+        id : GET_VALUE,
+        fieldId : fieldId,
+        isClassField : isClassField        
+    )
+
+    if isClassField:
+        result.instanceId = instanceId
+
+proc packRequest*(stream : LimitedStream, packet : GetFieldValueRequest) : void =
+    # Pack GetFieldValueRequest
+    packBaseRequest(stream, packet)    
+    stream.addUint64(packet.fieldId)
     stream.addUint8(uint8 packet.isClassField)
-    stream.addUint8(uint8 packet.valueType)
+    if packet.isClassField:
+        stream.addUint64(packet.instanceId)
+
+proc unpackGetFieldValue(data : LimitedStream) : GetFieldValueRequest =
+    # Unpack AddFieldRequest
+    result = newGetFieldValueRequest(
+        fieldId = data.readUint64(),
+        isClassField = bool data.readUint8()
+    )
+
+    if result.isClassField:
+        result.instanceId = data.readUint64()
 
 #############################################################################################
 # GetAllClassRequest
@@ -486,44 +524,48 @@ proc unpackGetAllInstanceResponse(stream : LimitedStream) : GetAllInstanceRespon
 #############################################################################################
 # GetFieldValueResponse
 
-# proc newGetFieldValueResponse*(packetId : ResponseType, value : Value) : GetFieldValueResponse =
-#     # Create new GetFieldValueResponse
-#     result = GetFieldValueResponse(
-#         id : packetId,
-#         code : OK_CODE,
-#         value : value
-#     )
+proc newGetFieldValueResponse*(value : Value) : GetFieldValueResponse =
+    # Create new GetFieldValueResponse
+    result = GetFieldValueResponse(
+        id : GET_VALUE_RESPONSE,
+        code : OK_CODE,
+        value : value
+    )
 
-# proc packGetFieldValueResponse(stream : LimitedStream, packet : GetFieldValueResponse) : void =
-#     # Pack GetFieldValueResponse
-#     if packet.value of VInt:
-#         let v = packet.value.getInt()
-#         stream.addInt32(v)
-#     elif packet.value of VFloat:
-#         let v = packet.value.getFloat()
-#         stream.addFloat64(v)
-#     elif packet.value of VString:
-#         let v = packet.value.getString()
-#         stream.addStringWithLen(v)
-#     elif packet.value of VRef:
-#         let v = packet.value.getRef()
-#         stream.addUint64(v)
-#     elif packet.value of VIntArray:
-#         let v = packet.value.getIntArray()
-#         for it in v:
-#             stream.addInt32(it)
-#     elif packet.value of VFloatArray:
-#         let v = packet.value.getFloatArray()
-#         for it in v:
-#             stream.addFloat64(it)
-#     elif packet.value of VStringArray:
-#         let v = packet.value.getStringArray()
-#         for it in v:
-#             stream.addStringWithLen(it)
-#     elif packet.value of VRefArray:
-#         let v = packet.value.getRefArray()
-#         for it in v:
-#             stream.addUint64(it)
+proc packResponse*(stream : LimitedStream, packet : GetFieldValueResponse) : void =
+    # Pack GetFieldValueResponse
+    if packet.value of VInt:
+        let v = packet.value.getInt()
+        stream.addInt32(v)
+    elif packet.value of VFloat:
+        let v = packet.value.getFloat()
+        stream.addFloat64(v)
+    elif packet.value of VString:
+        let v = packet.value.getString()
+        stream.addStringWithLen(v)
+    elif packet.value of VRef:
+        let v = packet.value.getRef()
+        stream.addUint64(v)
+    elif packet.value of VIntArray:
+        let v = packet.value.getIntArray()
+        for it in v:
+            stream.addInt32(it)
+    elif packet.value of VFloatArray:
+        let v = packet.value.getFloatArray()
+        for it in v:
+            stream.addFloat64(it)
+    elif packet.value of VStringArray:
+        let v = packet.value.getStringArray()
+        for it in v:
+            stream.addStringWithLen(it)
+    elif packet.value of VRefArray:
+        let v = packet.value.getRefArray()
+        for it in v:
+            stream.addUint64(it)
+
+proc unpackGetFieldValueResponse(stream : LimitedStream) : GetFieldValueResponse =
+    # Unpack GetFieldValueResponse
+    discard
 
 #############################################################################################
 # Packager api
@@ -537,6 +579,7 @@ proc unpackRequest*(data : LimitedStream) : RequestPacket =
     of ADD_NEW_FIELD: result = unpackAddField(data)
     of GET_ALL_CLASSES: result = unpackGetAllClass(data)
     of GET_ALL_INSTANCES: result = unpackGetAllInstance(data)
+    of GET_VALUE: result = unpackGetFieldValue(data)
     else:
         raise newException(Exception, "Unknown request packet")
 
@@ -548,6 +591,7 @@ proc unpackResponse(id : ResponseType, code : ResponseCode, data : LimitedStream
     of ADD_NEW_FIELD_RESPONSE: result = unpackAddFieldResponse(data)
     of GET_ALL_CLASSES_RESPONSE: result = unpackGetAllClassesResponse(data)
     of GET_ALL_INSTANCES_RESPONSE: result = unpackGetAllInstanceResponse(data)
+    of GET_VALUE_RESPONSE: result = unpackGetFieldValueResponse(data)
     else:
         result = OkResponse()
     result.id = id

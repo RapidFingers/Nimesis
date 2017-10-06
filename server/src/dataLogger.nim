@@ -4,6 +4,7 @@ import
     asyncdispatch,
     asyncfile,    
     streams,
+    ../../shared/coreTypes,
     ../../shared/streamProducer,
     ../../shared/valuePacker    
 
@@ -189,7 +190,7 @@ iterator allRecords*() : LogRecord =
 
         try:                        
             while true:
-                yield waitFor processRecord(reader)
+                yield fastWaitFor processRecord(reader)
         except:        
             discard
             #echo getCurrentExceptionMsg()

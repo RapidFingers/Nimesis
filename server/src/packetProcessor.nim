@@ -101,33 +101,35 @@ proc processGetAllInstances(client : ClientData, packet : GetAllInstanceRequest)
         await ioDevice.send(client, response)
         response.clear()
 
-# proc processGetFieldValue(packet : GetFieldValueRequest, response : LimitedStream) : Future[void] {.async.} = 
-#     # Process get field value
-#     let field = storage.getFieldById(packet.fieldId)
-#     if field.isNil: throwError(packet.id, FIELD_NOT_FOUND)        
+proc processGetFieldValue(client : ClientData, packet : GetFieldValueRequest) : Future[void] {.async.} = 
+    # Process get field value
+    let field = storage.getFieldById(packet.fieldId)
+    if field.isNil: throwError(GET_VALUE_RESPONSE, FIELD_NOT_FOUND)        
     
-#     var value : Value
-#     if field.isClassField and (packet of GetClassFieldValueRequest):
-#         value = storage.getFieldValue(field)
-#     elif (packet of GetInstanceFieldValueRequest):
-#         let pack = GetInstanceFieldValueRequest(packet)
-#         let instance = storage.getInstanceById(pack.instanceId)
-#         if instance.isNil: throwError(packet.id, INSTANCE_NOT_FOUND)
-#         value = storage.getFieldValue(field, instance)
-#     else:
-#         throwError(packet.id, VALUE_NOT_FOUND)
+    var value : Value
+    if field.isClassField:
+        value = storage.getFieldValue(field)
+    else:
+        let instance = storage.getInstanceById(packet.instanceId)
+        if instance.isNil: throwError(GET_VALUE_RESPONSE, INSTANCE_NOT_FOUND)
+        value = storage.getFieldValue(field, instance)
+    
+    if value.isNil:
+         throwError(GET_VALUE_RESPONSE, VALUE_NOT_FOUND)
+    
+    var response = newLimitedStream()
+    response.packResponse(newGetFieldValueResponse(value))        
+    await ioDevice.send(client, response)
 
-#     response.packResponse(newGetFieldValueResponse(packet.id, value))
+proc processSetFieldValue(packet : SetValueRequest, response : LimitedStream) : Future[void] {.async.} = 
+    # Process set field value    
+    # var field = storage.getFieldById(packet.fieldId)
 
-# proc processSetFieldValue(packet : SetValueRequest, response : LimitedStream) : Future[void] {.async.} = 
-#     # Process set field value    
-#     # var field = storage.getFieldById(packet.fieldId)
-
-#     # if field.isNil: throwError(SET_FIELD_VALUE, FIELD_NOT_FOUND)
-#     # let value = packet.readVariant(field.valueType)
-#     # storage.setFieldValue(field, value)
-#     # response.addOk(SET_FIELD_VALUE)
-#     discard
+    # if field.isNil: throwError(SET_FIELD_VALUE, FIELD_NOT_FOUND)
+    # let value = packet.readVariant(field.valueType)
+    # storage.setFieldValue(field, value)
+    # response.addOk(SET_FIELD_VALUE)
+    discard
 
 #############################################################################################
 # Private
@@ -145,7 +147,8 @@ proc processPacket(client : ClientData, packet : LimitedStream) : Future[void] {
     of ADD_NEW_FIELD: await processAddField(client, AddFieldRequest(requestPacket))
     of GET_ALL_CLASSES: await processGetAllClasses(client, GetAllClassRequest(requestPacket))
     of GET_ALL_INSTANCES: await processGetAllInstances(client, GetAllInstanceRequest(requestPacket))
-    #of GET_FIELD_VALUE: await processGetFieldValue(packet, response)
+    of GET_VALUE: await processGetFieldValue(client, GetFieldValueRequest(requestPacket))
+    of SET_VALUE: await processSetFieldValue(client, SetFieldValueRequest(requestPacket))
     else:
         raise newException(Exception, "Unknown command")
     
