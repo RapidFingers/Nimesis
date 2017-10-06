@@ -38,9 +38,8 @@ type
     DbField* = ref object of DbEntity
         classId* : BiggestUInt
         name* : string
-        isClassField* : uint8
-        valueType* : uint8
-        valueId* : BiggestUInt
+        isClassField* : bool
+        valueType* : ValueType        
 
     DbValue* = ref object of DbEntity
         fieldId* : BiggestUInt
@@ -72,7 +71,7 @@ proc newWorkspace() : Workspace =
 #############################################################################################
 # Private
 
-proc initDatabase() : void =
+proc initDatabase() {.async.} =
     # Init database
     if not os.fileExists(DATABASE_FILE_NAME):
         let createScript = "./$1/$2" % [RESOURCE_DIR, CREATE_DATABASE_NAME]
@@ -80,7 +79,7 @@ proc initDatabase() : void =
             raise newException(Exception, "Can't find create database script")
 
         let file = asyncfile.openAsync(createScript, fmRead)
-        let data = waitFor file.readAll()        
+        let data = await file.readAll()
         let db = open(DATABASE_FILE_NAME, "", "", "")
         let queries = data.split("--")
         for q in queries:
@@ -93,6 +92,12 @@ proc initDatabase() : void =
 #############################################################################################
 # Public interface
 
+proc beginTransaction*() : void =
+    workspace.db.exec(sql("BEGIN TRANSACTION;"))
+
+proc commit*() : void =
+    workspace.db.exec(sql("COMMIT;"))
+
 proc writeAddClass*(rec : AddClassRecord) : void =
     # Write add class record to database
     workspace.db.exec(sql("INSERT INTO classes(id,parentId,name) VALUES(?,?,?)"), rec.id, rec.parentId, rec.name)
@@ -104,7 +109,7 @@ proc writeAddInstance*(rec : AddInstanceRecord) : void =
 proc writeAddField*(rec : AddFieldRecord) : void =
     # Write add field record to database
     workspace.db.exec(sql("INSERT INTO fields(id,name,isClassField,classId,valueType) VALUES(?,?,?,?,?)"), 
-                      rec.id, rec.name, rec.isClassField, rec.classId, rec.valueType)
+                      rec.id, rec.name, uint8 rec.isClassField, rec.classId, uint8 rec.valueType)
 
 proc writeSetValue*(rec : SetValueRecord) : void =
     # Write set value record to database
@@ -159,19 +164,13 @@ proc getAllFields*() : seq[DbField] =
     # Get class and instance fields
     result = newSeq[DbField]()
     for row in workspace.db.fastRows(sql("SELECT id,name,isClassField,classId,valueType FROM fields")):
-        let valueIdStr : string = row[5]
-        var valueId = 0'u64
-        if not valueIdStr.isNil:
-            valueId = parseBiggestUInt(valueIdStr)
-
         result.add(
             DbField(
                 id : parseBiggestUInt(row[0]),
                 name : row[1],
-                isClassField : uint8 parseInt(row[2]),
+                isClassField : bool parseInt(row[2]),
                 classId : parseBiggestUInt(row[3]),
-                valueType : uint8 parseInt(row[4]),
-                valueId : valueId
+                valueType : ValueType(parseInt(row[4]))
             )
         )
 
@@ -213,9 +212,9 @@ iterator values*() : DbValue =
             value : parseBiggestUInt(row[2])
         )
 
-proc init*() : void =
+proc init*() {.async.} =
     # Init database
     #echo "Init database"
     workspace = newWorkspace()
-    initDatabase()
+    await initDatabase()
     #echo "Init database complete"

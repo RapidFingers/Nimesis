@@ -1,4 +1,5 @@
 import
+    strutils,
     tables,
     streams,
     asyncdispatch,
@@ -31,10 +32,12 @@ proc newWorkspace() : Workspace =
 proc getClassById*(id : BiggestUInt) : Class
 proc getInstanceById*(id : BiggestUInt) : Instance
 
-proc placeToDatabase() : void =    
+proc placeToDatabase() : void =        
     # Place all log to database
+    database.beginTransaction()
     for record in dataLogger.allRecords():
-        database.writeLogRecord(record)
+        database.writeLogRecord(record)        
+    database.commit()
     dataLogger.removeLog()
     #echo "All log placed to database"
 
@@ -51,18 +54,21 @@ proc loadFromDatabase() : void =
         workspace.classes[v.id] = getClass(classes, v.id)
 
     # Load all instances to memory
-    #let instances = database.getAllInstances()
+    for i in database.instances():
+        let class = getClassById(i.classId)
+        if class.isNil: raise newException(Exception, "Class not found for instance $1" % $(i.id))
+        workspace.instances[i.id] = entityProducer.newInstance(i.id, i.name, class)
 
     # Load all fields to memory
     let fields = database.getAllFields()    
     for f in fields:
         let class = getClassById(f.classId)
         if class.isNil: continue
-        if bool(f.isClassField):
-            let field = entityProducer.newField(f.id, f.name, class, true)
+        if f.isClassField:
+            let field = entityProducer.newField(f.id, f.name, class, true, f.valueType)
             class.classFields.add(field)
         else:
-            let field = entityProducer.newField(f.id, f.name, class, false)
+            let field = entityProducer.newField(f.id, f.name, class, false, f.valueType)
             class.instanceFields.add(field)
 
     # Load values to memory, except blobs
@@ -75,7 +81,12 @@ proc loadFromDatabase() : void =
 iterator allClasses*() : Class =
     # Iterate all classes
     for k, v in workspace.classes:
-        #echo v.name
+        yield v
+    yield nil
+
+iterator allInstances*() : Instance =
+    # Iterate all instances
+    for k, v in workspace.instances:        
         yield v
     yield nil
 
@@ -96,7 +107,13 @@ proc storeNewClass*(class : Class) : Future[void] {.async.} =
 
 proc storeNewInstance*(instance : Instance) : Future[void] {.async.} =
     # Store new instance data
-    discard
+    var record = dataLogger.AddInstanceRecord(
+        id : instance.id,
+        classId : instance.class.id,
+        name : instance.name
+    )
+    await dataLogger.logNewInstance(record)
+    workspace.instances[instance.id] = instance
 
 proc storeNewField*(field : Field) : Future[void] {.async.} =
     # Store new class field data
@@ -137,12 +154,12 @@ proc setFieldValue*(field : Field, value : Value) : void =
     #workspace.values[field.id].value = value
     discard
 
-proc init*() : void =
+proc init*() {.async.} =
     # Init storage
     #echo "Initing storage"
     workspace = newWorkspace()
     dataLogger.init()
-    database.init()
+    await database.init()
     placeToDatabase()
     loadFromDatabase()
     #echo "Init storage complete"

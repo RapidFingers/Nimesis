@@ -6,13 +6,6 @@ import
 #############################################################################################
 # Products
 type
-    # TODO: place in other module
-    # Possible value types to store
-    ValueType* = enum
-        INT = 0, 
-        STRING = 1, 
-        FLOAT = 2
-    
     # Base entity
     Entity* = ref object of RootObj
         id* : BiggestUInt                    # Id of entity
@@ -59,7 +52,7 @@ type
 
     # Instance entity
     Instance* = ref object of EntityWithValues
-        class : Class                          # Class of instance 
+        class* : Class                          # Class of instance 
 
 #############################################################################################
 # Workspace of producer
@@ -71,7 +64,7 @@ var workspace {.threadvar.} : Workspace
 proc newWorkspace() : Workspace =
     # Create new workspace
     result = Workspace(
-        idInc : 0
+        idInc : BiggestUInt(epochTime() * 1000000)
     )
 
 #############################################################################################
@@ -81,7 +74,6 @@ proc newWorkspace() : Workspace =
 proc newId() : BiggestUInt = 
     result = workspace.idInc
     workspace.idInc += 1
-    #BiggestUInt(epochTime() * 1000000)
 
 #############################################################################################
 # Entity
@@ -167,7 +159,13 @@ proc newInstance*(name : string, class : Class) : Instance =
     result.initInstance(name, class)
     result.id = newId()
 
-proc newField*(name : string, parent : Class, isClassField : bool) : Field = 
+proc newInstance*(id : BiggestUInt, name : string, class : Class) : Instance =
+    # Create new instance
+    result = Instance()
+    result.initInstance(name, class)
+    result.id = id
+
+proc newField*(name : string, parent : Class, isClassField : bool, valueType : ValueType) : Field = 
     # Create new field
     result = Field(
         id : newId(),
@@ -176,13 +174,14 @@ proc newField*(name : string, parent : Class, isClassField : bool) : Field =
         isClassField : isClassField
     )
 
-proc newField*(id : BiggestUInt, name : string, parent : Class, isClassField : bool) : Field = 
+proc newField*(id : BiggestUInt, name : string, parent : Class, isClassField : bool, valueType : ValueType) : Field = 
     # Create new field with id
     result = Field(
         id : id,
         name : name,
         class : parent,
-        isClassField : isClassField
+        isClassField : isClassField,
+        valueType : valueType
     )
 
 proc init*() =

@@ -1,5 +1,6 @@
 import
     os,
+    times,
     asyncdispatch,
     asyncfile,    
     streams,
@@ -186,7 +187,7 @@ iterator allRecords*() : LogRecord =
         var file = openAsync(LOG_FILE_NAME, fmRead)
         let reader = newFileReader(file)
 
-        try:
+        try:                        
             while true:
                 yield waitFor processRecord(reader)
         except:        

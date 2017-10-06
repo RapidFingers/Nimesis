@@ -1,4 +1,5 @@
 import
+    times,
     asyncdispatch,
     asyncnet,
     websocket,
@@ -66,19 +67,36 @@ proc addField*(this : IODevice, req : AddFieldRequest) : Future[AddFieldResponse
     packetPacker.packRequest(stream, req)
     result = AddFieldResponse(await this.sendRequest(stream))
 
-proc readAllClassResponse(this : IODevice) : GetAllClassResponse =
+proc readAllClassResponse(this : IODevice) : Future[GetAllClassResponse] {.async.} =
     # Read one response
-    let data = waitFor this.readData()
+    let data = await this.readData()
     var rsp = packetPacker.unpackResponse(data)
     checkError(rsp)
     result = GetAllClassResponse(rsp)
 
-iterator allClasses*(this : IODevice) : GetAllClassResponse =
+iterator allClasses*(this : IODevice) : GetAllClassResponse =  
     # Iterate all classes
     let stream = newLimitedStream()
     packetPacker.packRequest(stream, newGetAllClass())
-    waitFor this.sock.sendBinary(stream.data, false)    
-    var resp = this.readAllClassResponse()    
+    fastWaitFor this.sock.sendBinary(stream.data, false)
+    var resp = fastWaitFor this.readAllClassResponse()    
     while not resp.isEnd:
         yield resp
-        resp = this.readAllClassResponse()        
+        resp = fastWaitFor this.readAllClassResponse()
+
+proc readAllInstanceResponse(this : IODevice) : Future[GetAllInstanceResponse] {.async.} =
+    # Read one response
+    let data = await this.readData()
+    var rsp = packetPacker.unpackResponse(data)
+    checkError(rsp)
+    result = GetAllInstanceResponse(rsp)
+
+iterator allInstances*(this : IODevice) : GetAllInstanceResponse =  
+    # Iterate all instances    
+    let stream = newLimitedStream()
+    packetPacker.packRequest(stream, newGetAllInstance())
+    fastWaitFor this.sock.sendBinary(stream.data, false)
+    var resp = fastWaitFor this.readAllInstanceResponse()    
+    while not resp.isEnd:
+        yield resp
+        resp = fastWaitFor this.readAllInstanceResponse()

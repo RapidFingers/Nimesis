@@ -1,39 +1,58 @@
 import
+    times,
     strutils,
     asyncdispatch,
     ioProducer,
     ../../shared/coreTypes,
     ../../shared/streamProducer,
-    ../../shared/packetPacker
+    ../../shared/packetPacker,
+    ../../shared/valuePacker
 
 let io = newIoDevice()
 waitFor io.connect()
 
-proc addClass() {.async.} =    
-    for i in 0..100:        
-        discard await io.addClass(
-            newAddClass(
-                name = "Weapon_$1" % ($i),
-                parentId = 0
-            )
+proc addClass() : Future[uint64] {.async.} =        
+    let resp = await io.addClass(
+        newAddClass(
+            name = "BaseClass",
+            parentId = 0
         )
-
-    # for c in io.allClasses():
-    #     echo c.name
+    )
+    result = resp.classId
 
 proc addInstance() : Future[uint64] {.async.} =    
     let resp = await io.addInstance(
         newAddInstance(
             name = "User",
-            classId = 1507226558501763'u64
+            classId = 1507280676376022'u64
         )
     )
-    result = resp.instanceId
+    result = resp.instanceId 
+
+proc addField(classId : uint64) {.async.} =    
+    let resp = await io.addField(
+        newAddField(
+            name = "email",            
+            classId = classId,
+            isClassField = true,
+            valueType = INT
+        )
+    )
+    echo resp.fieldId
 
 proc allClasses() {.async.} =
     for c in io.allClasses():
         echo c.name
+        echo c.classId
 
-waitFor addClass()
+proc allInstances() {.async.} =
+    for c in io.allInstances():
+        echo c.name
+        echo c.instanceId
+        echo c.classId
+
+#let classId = waitFor addClass()
 #echo waitFor addInstance()
-#waitFor allClasses()
+#waitFor addField(classId)
+waitFor allClasses()
+waitFor allInstances()

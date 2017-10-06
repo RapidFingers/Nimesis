@@ -47,28 +47,56 @@ proc processAddInstance(client : ClientData, packet : AddInstanceRequest) : Futu
     await ioDevice.send(client, response)
 
 proc processAddField(client : ClientData, packet : AddFieldRequest) : Future[void] {.async.} =
-    # Process add class field    
-    let class = storage.getClassById(packet.classId)    
-    let nfield = entityProducer.newField(packet.name, class,packet.isClassField)
+    # Process add class field
+    let class = storage.getClassById(packet.classId)
+    if class.isNil: throwError(ADD_NEW_FIELD_RESPONSE, CLASS_NOT_FOUND)
+    let nfield = entityProducer.newField(packet.name, class, packet.isClassField, packet.valueType)
     await storage.storeNewField(nfield)
     var response = newLimitedStream()
-    response.packResponse(newOkResponse(ADD_NEW_FIELD_RESPONSE))
+    response.packResponse(newAddFieldResponse(nfield.id))
     await ioDevice.send(client, response)
 
 proc processGetAllClasses(client : ClientData, packet : GetAllClassRequest) : Future[void] {.async.} =
     # Process get all classes
-    var response = newLimitedStream()
-    for c in storage.allClasses():        
+    var response = newLimitedStream()    
+    for c in storage.allClasses():
         if c != nil:
-            response.packResponse(newGetAllClassesResponse(
+            var resp = newGetAllClassResponse(
                 isEnd = false,
                 classId = c.id,
                 parentId = c.parentId(),
                 name = c.name
-            ))
+            )
+
+            for f in c.classFields:
+                resp.classFields.add(newFieldInfoResponse(f.id, f.name, f.valueType))
+                        
+            for f in c.instanceFields:
+                resp.instanceFields.add(newFieldInfoResponse(f.id, f.name, f.valueType))
+
+            response.packResponse(resp)
         else:
-            response.packResponse(newGetAllClassesResponse(
-                isEnd = true,                
+            response.packResponse(newGetAllClassResponse(
+                isEnd = true
+            ))
+        await ioDevice.send(client, response)
+        response.clear()
+
+proc processGetAllInstances(client : ClientData, packet : GetAllInstanceRequest) : Future[void] {.async.} =
+    # Process get all instances
+    var response = newLimitedStream()    
+    for c in storage.allInstances():
+        if c != nil:
+            let resp = newGetAllInstanceResponse(
+                isEnd = false,
+                instanceId = c.id,
+                classId = c.class.id,
+                name = c.name
+            )
+            response.packResponse(resp)
+        else:
+            response.packResponse(newGetAllInstanceResponse(
+                isEnd = true
             ))
         await ioDevice.send(client, response)
         response.clear()
@@ -116,6 +144,7 @@ proc processPacket(client : ClientData, packet : LimitedStream) : Future[void] {
     of ADD_NEW_INSTANCE: await processAddInstance(client, AddInstanceRequest(requestPacket))
     of ADD_NEW_FIELD: await processAddField(client, AddFieldRequest(requestPacket))
     of GET_ALL_CLASSES: await processGetAllClasses(client, GetAllClassRequest(requestPacket))
+    of GET_ALL_INSTANCES: await processGetAllInstances(client, GetAllInstanceRequest(requestPacket))
     #of GET_FIELD_VALUE: await processGetFieldValue(packet, response)
     else:
         raise newException(Exception, "Unknown command")

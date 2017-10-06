@@ -86,7 +86,7 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                     packetPacker.packResponse(response, errorResponse)
                     discard send(client, response)
                     #echo errorResponse.errorCode
-                    #echo processFut.error.msg
+                    echo processFut.error.getStackTrace()
             else:
                 #echo "Only binary protocol allowed"
                 break
@@ -103,10 +103,10 @@ proc setOnPacket*(call : RecievePacket) : void =
     # Set call on packet recieve
     workspace.onPacket = call
 
-proc listen*() : void =
+proc listen*() {.async.} =
     # Start listen for clients
     #echo "Start listening"
-    waitFor workspace.server.serve(Port(DEFAULT_SERVER_PORT), callback)
+    await workspace.server.serve(Port(DEFAULT_SERVER_PORT), callback)
 
 proc init*() =
     # Init workspace

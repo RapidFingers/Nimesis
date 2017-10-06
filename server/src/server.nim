@@ -5,9 +5,12 @@ import
     entityProducer,
     storage
 
-storage.init()
-entityProducer.init()
-ioDevice.init()
-packetProcessor.init()
+proc initAll() {.async.} =
+    # Init all modules
+    await storage.init()
+    entityProducer.init()
+    ioDevice.init()
+    packetProcessor.init()
+    await ioDevice.listen()
 
-ioDevice.listen()
+waitFor initAll()
