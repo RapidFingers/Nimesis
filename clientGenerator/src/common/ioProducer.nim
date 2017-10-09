@@ -3,9 +3,9 @@ import
     asyncdispatch,
     asyncnet,
     websocket,
-    ../../shared/streamProducer,
-    ../../shared/coreTypes,
-    ../../shared/packetPacker
+    ../../../shared/streamProducer,
+    ../../../shared/coreTypes,
+    ../../../shared/packetPacker
 
 # Device for contacting with server
 type IODevice* = ref object of RootObj
