@@ -79,11 +79,8 @@ type
     # Base field value request
     FieldValueRequest* = ref object of RequestPacket
         fieldId* : uint64
-        case isClassField* : bool
-        of false:
-            instanceId* : uint64
-        else:
-            discard
+        isClassField* : bool        
+        instanceId* : uint64
 
     # Get field value request
     GetFieldValueRequest* = ref object of FieldValueRequest
@@ -235,7 +232,7 @@ proc newGetFieldValueRequest*(fieldId : uint64, isClassField : bool, instanceId 
     result = GetFieldValueRequest(
         id : GET_VALUE,
         fieldId : fieldId,
-        isClassField : isClassField        
+        isClassField : isClassField
     )
 
     if isClassField:

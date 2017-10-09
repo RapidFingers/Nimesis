@@ -9,6 +9,9 @@ import
     ../../shared/packetPacker,
     ../../shared/streamProducer
 
+const WEBSOCKET_NAME = "websocket"
+const UPGRADE_HEADER_NAME = "Upgrade"
+
 #############################################################################################
 # Client data
 type
@@ -45,12 +48,11 @@ proc newWorkspace() : Workspace =
 
 var workspace {.threadvar.} : Workspace
 
+# Forward declaration
 proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.}
 
-# TODO: too complex
-proc callback(request: Request) : Future[void] {.async, gcsafe.} =
-    # Websocket callback
-    #echo "Accepted"
+proc processWebsocket(request: Request) {.async.} =
+    # Process websocket connection
     let (success, error) = await(verifyWebsocketRequest(request, NIMESIS_PROTOCOL))
     if not success:
         await request.respond(Http400, "Websocket negotiation failed: " & error)
@@ -93,6 +95,18 @@ proc callback(request: Request) : Future[void] {.async, gcsafe.} =
                 
         request.client.close()
         #echo "Done"
+
+proc processHttp(request: Request) {.async.} =
+    # Process http request for webui
+    discard
+
+proc callback(request : Request) : Future[void] {.async, gcsafe.} =
+    # Websocket callback
+    let upHeader = request.headers.getOrDefault(UPGRADE_HEADER_NAME)
+    if WEBSOCKET_NAME == upHeader:
+        await processWebsocket(request)
+    else:
+        await processHttp(request)
 
 proc send*(client : ClientData, packet : LimitedStream) : Future[void] {.async.} =
     # Send packet to client

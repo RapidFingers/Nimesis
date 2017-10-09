@@ -56,11 +56,11 @@ import
 
 const usageString = """
 Commands:
-    ts              Generate client for typescript
+    ts              Generate client for Typescript
     cs              Generate client for C#
     java            Generate client for Java
 Example:
-    clientgen -js
+    clientgen -ts
     clientgen -cs
 """
 

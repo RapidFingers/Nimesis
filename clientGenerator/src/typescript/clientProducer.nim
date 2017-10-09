@@ -8,8 +8,6 @@ import
     # ../../../shared/packetPacker,
     # ../../../shared/valuePacker
 
-const fl : string = readFile("./clients/typescript/tsconfig.json")
-
 type Workspace = ref object
     io : IODevice
 
@@ -17,16 +15,15 @@ var workspace {.threadvar.} : Workspace
 
 proc newWorkspace() : Workspace =
     # Create new workspace
-    workspace = Workspace(
+    result = Workspace(
         io : newIoDevice()
     )
 
 proc produceClient*() {.async.} =
     # Produce client for typescript
-    echo fl
 
-    # workspace = newWorkspace()
-    # await workspace.io.connect()
+    workspace = newWorkspace()
+    await workspace.io.connect()
 
-    # for c in workspace.io.allClasses():
-    #     discard
+    for c in workspace.io.allClasses():
+        echo c.name
