@@ -63,6 +63,7 @@ namespace Utils {
          * @param data 
          */
         send(data : BinaryData) : void {
+            console.log(data.toHex());
             this.socket.send(data.toData());
         }
 
@@ -74,6 +75,7 @@ namespace Utils {
                 this.socket.onmessage = function(e) {
                     let d = new Uint8Array(e.data);
                     let bd = new BinaryData(d);
+                    console.log(bd.toHex());
                     resolve(bd);
                     this.onmessage = null;
                 }

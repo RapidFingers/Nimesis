@@ -23,6 +23,16 @@ namespace Utils {
     }
 
     /**
+     * Base packet
+     */
+    export class BasePacket {
+        /**
+         * Empty entity Id
+         */
+        static EMPTY_ID = "0000000000000000";
+    }
+
+    /**
      * Packet of request
      */
     export abstract class RequestPacket {
@@ -127,7 +137,48 @@ namespace Utils {
             let bd = new BinaryData();
             bd.addUint8(RequestType.ADD_CLASS_REQUEST);
             bd.addStringWithLen(this.name);
-            bd.addId(this.parentId);
+            if (this.parentId != null) {
+                bd.addId(this.parentId);
+            } else {
+                bd.addId(BasePacket.EMPTY_ID);
+            }
+            return bd;
+        }
+    }
+
+    /**
+     * Add class request
+     */    
+    export class AddInstanceRequest extends RequestPacket {
+        /**
+         * Class name
+         */
+        name : string;
+
+        /**
+         * Parent id
+         */
+        classId : string;
+
+        /**
+         * Constructor
+         * @param name 
+         * @param classId 
+         */
+        constructor(name : string, classId : string) {
+            super();
+            this.name = name;
+            this.classId = classId;
+        }
+
+        /**
+         * Convert packet to binary data
+         */
+        pack() : BinaryData {
+            let bd = new BinaryData();
+            bd.addUint8(RequestType.ADD_CLASS_REQUEST);
+            bd.addStringWithLen(this.name);
+            bd.addId(this.classId);
             return bd;
         }
     }
@@ -141,10 +192,14 @@ namespace Utils {
          */
         classId : string;
 
+        /**
+         * Unpack 
+         * @param data 
+         */
         static unpack(data : BinaryData) : AddClassResponse {
             let res = new AddClassResponse();
             res.classId = data.readId();
-            return res;            
+            return res;
         }
     }
 }

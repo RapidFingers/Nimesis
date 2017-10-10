@@ -81,16 +81,10 @@ namespace Utils {
          * @param v 
          */
         addId(v : string) {
-            this.checkSize(8);                        
-            let d = 16 - v.length;
-            let pr = "";            
-            for (let i = 1; i < d+1; i++) {
-                pr += "0";
-            }            
-            v = pr + v;
-            for (let i = v.length-2; i > -2; i-=2) {
-                let c = parseInt( "0x" + (s.charAt(i) + s.charAt(i+1)));
-                this.addUint8(c);
+            this.checkSize(8);            
+            for (var i = 0; i < v.length; i += 2) {
+                var c = parseInt("0x" + (v.charAt(i) + v.charAt(i+1)));
+                this.buffer[this.len++] = c;
             }
         }
 
@@ -124,25 +118,6 @@ namespace Utils {
             this.buffer[this.len++] = (v & 0xFF0000) >> 16;
             this.buffer[this.len++] = (v & 0xFF000000) >> 24;
         }
-
-        /**
-         * Add uint64
-         * @param v 
-         */
-       /* addUint64(v : number) : void {
-            this.checkSize(8);            
-            let s = v.toString(16);
-            let d = 16 - s.length;
-            let pr = "";            
-            for (let i = 1; i < d+1; i++) {
-                pr += "0";
-            }            
-            s = pr + s;            
-            for (let i = s.length-2; i > -2; i-=2) {
-                let c = parseInt( "0x" + (s.charAt(i) + s.charAt(i+1)));
-                this.addUint8(c);
-            }
-        }*/
 
         /**
          * Add string with len
@@ -199,7 +174,13 @@ namespace Utils {
          * Read 8 byte identifier
          */
         readId() : string {
-            return "";
+            let res = "";
+            for (let i = 0; i < 8; i++) {
+                let d = this.buffer[this.pos++].toString(16);  
+                if (d.length < 2) d = "0" + d;
+                res += d;
+            }
+            return res;
         }
 
         /**

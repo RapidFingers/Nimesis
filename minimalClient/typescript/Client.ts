@@ -18,7 +18,7 @@ namespace Utils {
          * Protocol name
          */
         static PROTOCOL = "nimesis";
-            
+
         /**
          * Async web socket client
          */
@@ -65,10 +65,10 @@ namespace Utils {
          * @param name 
          * @param parent 
          */
-        async addClass(name : string, parent : RClass) : Promise<number> {
+        async addClass(name : string, parentId : string) : Promise<string> {
             await this.aws.open();
-            var parentId = 0;
-            if (parent != null) parentId = parent.id;
+            var pId = BasePacket.EMPTY_ID;
+            if (parentId != null) pId = parentId;
             this.send(new AddClassRequest(name, parentId));
             let data = await this.aws.read();
             let resp = ResponsePacket.unpack(data);
@@ -80,10 +80,11 @@ namespace Utils {
         /**
          * Add new instance of class
          * @param name 
-         * @param clazz 
+         * @param classId
          */
-        addInstance(name : string, clazz : RClass) {
-            
+        async addInstance(name : string, classId : string) {
+            await this.aws.open();            
+            this.send(new AddInstanceRequest(name, classId));
         }
 
         /**

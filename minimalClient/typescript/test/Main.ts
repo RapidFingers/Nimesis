@@ -3,5 +3,5 @@
  */
 window.addEventListener('DOMContentLoaded', async () => {
     let client = new Utils.Client();
-    await client.addClass("BaseClass", null);
+    let id = await client.addClass("BaseClass", null);
 });

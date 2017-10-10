@@ -47,6 +47,7 @@ var Utils;
          * @param data
          */
         send(data) {
+            console.log(data.toHex());
             this.socket.send(data.toData());
         }
         /**
@@ -58,6 +59,7 @@ var Utils;
                     this.socket.onmessage = function (e) {
                         let d = new Uint8Array(e.data);
                         let bd = new Utils.BinaryData(d);
+                        console.log(bd.toHex());
                         resolve(bd);
                         this.onmessage = null;
                     };
@@ -124,6 +126,17 @@ var Utils;
             this.pos = 0;
         }
         /**
+         * Add 8 bytes identifier from hex string
+         * @param v
+         */
+        addId(v) {
+            this.checkSize(8);
+            for (var i = 0; i < v.length; i += 2) {
+                var c = parseInt("0x" + (v.charAt(i) + v.charAt(i + 1)));
+                this.buffer[this.len++] = c;
+            }
+        }
+        /**
          * Add byte to buffer
          * @param v
          */
@@ -150,24 +163,6 @@ var Utils;
             this.buffer[this.len++] = (v & 0xFF00) >> 8;
             this.buffer[this.len++] = (v & 0xFF0000) >> 16;
             this.buffer[this.len++] = (v & 0xFF000000) >> 24;
-        }
-        /**
-         * Add uint64
-         * @param v
-         */
-        addUint64(v) {
-            this.checkSize(8);
-            let s = v.toString(16);
-            let d = 16 - s.length;
-            let pr = "";
-            for (let i = 1; i < d + 1; i++) {
-                pr += "0";
-            }
-            s = pr + s;
-            for (let i = s.length - 2; i > -2; i -= 2) {
-                let c = parseInt("0x" + (s.charAt(i) + s.charAt(i + 1)));
-                this.addUint8(c);
-            }
         }
         /**
          * Add string with len
@@ -215,6 +210,19 @@ var Utils;
             return (this.readUint8() << 24) + (this.readUint8() << 16) + (this.readUint8() << 8) + this.readUint8();
         }
         /**
+         * Read 8 byte identifier
+         */
+        readId() {
+            let res = "";
+            for (let i = 0; i < 8; i++) {
+                let d = this.buffer[this.pos++].toString(16);
+                if (d.length < 2)
+                    d = "0" + d;
+                res += d;
+            }
+            return res;
+        }
+        /**
          * Return
          */
         toData() {
@@ -259,6 +267,14 @@ var Utils;
             this.aws.send(request.pack());
         }
         /**
+         * Check response for error
+         * @param response
+         */
+        checkResponseError(response) {
+            if (response.code == Utils.ResponseCode.ERROR_CODE)
+                throw new Error(`Error ${response.id} - ${response.code}`);
+        }
+        /**
          * Get all classes
          */
         getClasses() {
@@ -273,16 +289,18 @@ var Utils;
          * @param name
          * @param parent
          */
-        addClass(name, parent) {
+        addClass(name, parentId) {
             return __awaiter(this, void 0, void 0, function* () {
                 yield this.aws.open();
-                var parentId = 0;
-                if (parent != null)
-                    parentId = parent.id;
-                this.send(new Utils.AddClassPacket(name, parentId));
+                var pId = Utils.BasePacket.EMPTY_ID;
+                if (parentId != null)
+                    pId = parentId;
+                this.send(new Utils.AddClassRequest(name, parentId));
                 let data = yield this.aws.read();
-                console.log(data.toHex());
-                return 0;
+                let resp = Utils.ResponsePacket.unpack(data);
+                this.checkResponseError(resp);
+                let rs = resp;
+                return rs.classId;
             });
         }
         /**
@@ -337,17 +355,94 @@ var Utils;
 })(Utils || (Utils = {}));
 var Utils;
 (function (Utils) {
+    /**
+     * Request types
+     */
     let RequestType;
     (function (RequestType) {
         RequestType[RequestType["ADD_CLASS_REQUEST"] = 0] = "ADD_CLASS_REQUEST";
     })(RequestType = Utils.RequestType || (Utils.RequestType = {}));
+    /**
+     * Response types
+     */
+    let ResponseType;
+    (function (ResponseType) {
+        ResponseType[ResponseType["INTERNAL_ERROR"] = 0] = "INTERNAL_ERROR";
+        ResponseType[ResponseType["ADD_CLASS_RESPONSE"] = 1] = "ADD_CLASS_RESPONSE";
+    })(ResponseType = Utils.ResponseType || (Utils.ResponseType = {}));
+    /**
+     * Response codes
+     */
+    let ResponseCode;
+    (function (ResponseCode) {
+        ResponseCode[ResponseCode["OK_CODE"] = 0] = "OK_CODE";
+        ResponseCode[ResponseCode["ERROR_CODE"] = 1] = "ERROR_CODE";
+    })(ResponseCode = Utils.ResponseCode || (Utils.ResponseCode = {}));
+    /**
+     * Base packet
+     */
+    class BasePacket {
+    }
+    /**
+     * Empty entity Id
+     */
+    BasePacket.EMPTY_ID = "0000000000000000";
+    Utils.BasePacket = BasePacket;
     /**
      * Packet of request
      */
     class RequestPacket {
     }
     Utils.RequestPacket = RequestPacket;
-    class AddClassPacket extends RequestPacket {
+    /**
+     * Response packet
+     */
+    class ResponsePacket {
+        /**
+         * Unpack binary data to packet
+         */
+        static unpack(data) {
+            let id = data.readUint8();
+            let code = data.readUint8();
+            if (code == ResponseCode.ERROR_CODE) {
+                let errorCode = data.readUint8();
+                return new ErrorResponse(id, errorCode);
+            }
+            let resp;
+            switch (id) {
+                case ResponseType.ADD_CLASS_RESPONSE:
+                    resp = AddClassResponse.unpack(data);
+                    break;
+            }
+            if (resp == null)
+                throw new Error("Unknown response");
+            resp.id = id;
+            resp.code = code;
+            return resp;
+        }
+    }
+    Utils.ResponsePacket = ResponsePacket;
+    /**
+     * Error response
+     */
+    class ErrorResponse extends ResponsePacket {
+        /**
+         * Constructor
+         * @param id
+         * @param errorCode
+         */
+        constructor(id, errorCode) {
+            super();
+            this.id = id;
+            this.code = ResponseCode.ERROR_CODE;
+            this.errorCode = errorCode;
+        }
+    }
+    Utils.ErrorResponse = ErrorResponse;
+    /**
+     * Add class request
+     */
+    class AddClassRequest extends RequestPacket {
         /**
          * Constructor
          * @param name
@@ -365,11 +460,31 @@ var Utils;
             let bd = new Utils.BinaryData();
             bd.addUint8(RequestType.ADD_CLASS_REQUEST);
             bd.addStringWithLen(this.name);
-            bd.addUint64(this.parentId);
+            if (this.parentId != null) {
+                bd.addId(this.parentId);
+            }
+            else {
+                bd.addId(BasePacket.EMPTY_ID);
+            }
             return bd;
         }
     }
-    Utils.AddClassPacket = AddClassPacket;
+    Utils.AddClassRequest = AddClassRequest;
+    /**
+     * Response for add class request
+     */
+    class AddClassResponse extends ResponsePacket {
+        /**
+         * Unpack
+         * @param data
+         */
+        static unpack(data) {
+            let res = new AddClassResponse();
+            res.classId = data.readId();
+            return res;
+        }
+    }
+    Utils.AddClassResponse = AddClassResponse;
 })(Utils || (Utils = {}));
 var Utils;
 (function (Utils) {
@@ -432,6 +547,9 @@ var Utils;
  */
 window.addEventListener('DOMContentLoaded', () => __awaiter(this, void 0, void 0, function* () {
     let client = new Utils.Client();
-    client.addClass("BaseClass", null);
+    let id = yield client.addClass("BaseClass", null);
+    console.log(id);
+    let id2 = yield client.addClass("Weapon", id);
+    console.log(id2);
 }));
 //# sourceMappingURL=index.js.map
