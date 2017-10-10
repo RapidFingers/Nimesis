@@ -55,25 +55,24 @@ proc processWebsocket(request: Request) {.async.} =
     # Process websocket connection
     let (success, error) = await(verifyWebsocketRequest(request, NIMESIS_PROTOCOL))
     if not success:
-        await request.respond(Http400, "Websocket negotiation failed: " & error)
-        #echo error
+        echo error
         request.client.close()
     else:
         # New session
         var client = newClientData(request.client)
-        while true:
+        while true:            
             let readFut = request.client.readData(false)
-            yield readFut
-            if readFut.failed: break
+            yield readFut            
+            if readFut.failed: break            
 
-            let f = readFut.read()
-            if f.opcode == Opcode.Binary:
+            let f = readFut.read()            
+            if f.opcode == Opcode.Binary:                
                 var packet = newLimitedStream()
                 packet.setData(f.data)
                 let processFut = workspace.onPacket(client, packet)                
                 yield processFut
                 # Send internal error to client and break
-                if processFut.failed:
+                if processFut.failed:                    
                     # If known exception
                     var errorResponse : ErrorResponse = nil
                     if processFut.error of IoException:
@@ -90,7 +89,7 @@ proc processWebsocket(request: Request) {.async.} =
                     #echo errorResponse.errorCode
                     echo processFut.error.getStackTrace()
             else:
-                #echo "Only binary protocol allowed"
+                echo "Only binary protocol allowed"
                 break
                 
         request.client.close()
@@ -102,8 +101,10 @@ proc processHttp(request: Request) {.async.} =
 
 proc callback(request : Request) : Future[void] {.async, gcsafe.} =
     # Websocket callback
+    echo "ACCEPT"
     let upHeader = request.headers.getOrDefault(UPGRADE_HEADER_NAME)
     if WEBSOCKET_NAME == upHeader:
+        echo "Websocket"
         await processWebsocket(request)
     else:
         await processHttp(request)

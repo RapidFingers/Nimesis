@@ -2,8 +2,8 @@
     "compilerOptions": {
         "target": "es6",        
         "module": "amd",        
-        "outFile": "index.js",
+        "outFile": "./test/index.js",
         "sourceMap": true,
         "watch": false
-    }
+    }    
 }
